@@ -1,4 +1,5 @@
 const authService = require("../services/auth.service");
+const { sendSuccess } = require("../utils/response");
 
 /**
  * Controller for registering a new Admin user.
@@ -7,12 +8,7 @@ const register = async (req, res, next) => {
   try {
     const { email, password, name } = req.body;
     const admin = await authService.register(email, password, name);
-
-    res.status(201).json({
-      success: true,
-      message: "Admin registered successfully.",
-      data: admin,
-    });
+    return sendSuccess(res, "Admin registered successfully.", admin, 201);
   } catch (error) {
     next(error);
   }
@@ -25,12 +21,7 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const data = await authService.login(email, password);
-
-    res.status(200).json({
-      success: true,
-      message: "Login successful.",
-      data,
-    });
+    return sendSuccess(res, "Login successful.", data, 200);
   } catch (error) {
     next(error);
   }
@@ -44,16 +35,10 @@ const forgotPassword = async (req, res, next) => {
     const { email } = req.body;
     const resetToken = await authService.forgotPassword(email);
 
-    // In a fully deployed environment, this would trigger an email.
-    // For development, we return the token in the API response.
-    res.status(200).json({
-      success: true,
-      message: "Password reset token generated successfully. In production, this will be emailed.",
-      data: {
-        resetToken,
-        resetUrl: `${req.protocol}://${req.get("host")}/api/auth/reset-password?token=${resetToken}`
-      },
-    });
+    return sendSuccess(res, "Password reset token generated successfully. In production, this will be emailed.", {
+      resetToken,
+      resetUrl: `${req.protocol}://${req.get("host")}/api/auth/reset-password?token=${resetToken}`
+    }, 200);
   } catch (error) {
     next(error);
   }
@@ -66,11 +51,7 @@ const resetPassword = async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
     const result = await authService.resetPassword(token, newPassword);
-
-    res.status(200).json({
-      success: true,
-      message: result.message,
-    });
+    return sendSuccess(res, result.message, null, 200);
   } catch (error) {
     next(error);
   }

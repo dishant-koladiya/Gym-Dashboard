@@ -5,6 +5,8 @@ Prisma ORM => it acts as a bridge between an application's code and its database
 .env => to store all connectivity link 
  
 
- npm run dev +  npx prisma studio
+ npm run dev 
+
+ npx prisma studio:  We use the command  to launch a visual, browser-based database GUI that allows you to easily explore, add, modify, and delete data in your application's database
 
  api/auth/login 

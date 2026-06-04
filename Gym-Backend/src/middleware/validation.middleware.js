@@ -1,3 +1,5 @@
+const { sendError } = require("../utils/response");
+
 /**
  * Validation middleware for Authentication requests.
  */
@@ -6,16 +8,16 @@ const validateRegister = (req, res, next) => {
   const { email, password, name } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ success: false, message: "Email and password are required" });
+    return sendError(res, "Email and password are required.", 400);
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).json({ success: false, message: "Invalid email format" });
+    return sendError(res, "Invalid email format.", 400);
   }
 
   if (typeof password !== "string" || password.length < 6) {
-    return res.status(400).json({ success: false, message: "Password must be at least 6 characters long" });
+    return sendError(res, "Password must be at least 6 characters long.", 400);
   }
 
   next();
@@ -25,7 +27,7 @@ const validateLogin = (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ success: false, message: "Email and password are required" });
+    return sendError(res, "Email and password are required.", 400);
   }
 
   next();
@@ -35,12 +37,12 @@ const validateForgotPassword = (req, res, next) => {
   const { email } = req.body;
 
   if (!email) {
-    return res.status(400).json({ success: false, message: "Email is required" });
+    return sendError(res, "Email is required.", 400);
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).json({ success: false, message: "Invalid email format" });
+    return sendError(res, "Invalid email format.", 400);
   }
 
   next();
@@ -50,11 +52,11 @@ const validateResetPassword = (req, res, next) => {
   const { token, newPassword } = req.body;
 
   if (!token || !newPassword) {
-    return res.status(400).json({ success: false, message: "Token and newPassword are required" });
+    return sendError(res, "Token and newPassword are required.", 400);
   }
 
   if (typeof newPassword !== "string" || newPassword.length < 6) {
-    return res.status(400).json({ success: false, message: "Password must be at least 6 characters long" });
+    return sendError(res, "Password must be at least 6 characters long.", 400);
   }
 
   next();

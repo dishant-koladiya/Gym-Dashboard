@@ -1,3 +1,5 @@
+const { sendError } = require("../utils/response");
+
 /**
  * Custom application error class.
  */
@@ -13,7 +15,6 @@ class AppError extends Error {
  * Centralized error handler middleware.
  */
 const errorHandler = (err, req, res, next) => {
-  // Log the complete error stack in development, otherwise a short error message
   if (process.env.NODE_ENV === "development") {
     console.error("❌ Error:", err);
   } else {
@@ -51,11 +52,13 @@ const errorHandler = (err, req, res, next) => {
   const statusCode = error.statusCode || 500;
   const message = error.message || "Internal Server Error";
 
-  res.status(statusCode).json({
-    success: false,
+  // Use standardized error response formatting
+  return sendError(
+    res,
     message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack })
-  });
+    statusCode,
+    process.env.NODE_ENV === "development" ? err.stack : null
+  );
 };
 
 module.exports = {
