@@ -1,0 +1,6 @@
+{
+  "name": "Titan Fitness",
+  "description": "An elite admin console for sleek gym management, billing, and transaction processing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
