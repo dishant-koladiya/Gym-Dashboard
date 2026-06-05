@@ -145,6 +145,36 @@ const deactivateMember = async (id) => {
 };
 
 /**
+ * Permanently delete a member and all cascaded relations.
+ */
+const deleteMember = async (id) => {
+  const member = await prisma.member.findUnique({ where: { id: parseInt(id) } });
+  if (!member) {
+    throw new AppError("Member not found.", 404);
+  }
+
+  return await prisma.member.delete({
+    where: { id: parseInt(id) },
+  });
+};
+
+/**
+ * Get all active members.
+ */
+const getActiveMembers = async () => {
+  return await prisma.member.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      subscriptions: {
+        include: { plan: true },
+        orderBy: { startDate: "desc" },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+/**
  * Check-in a member.
  */
 const checkIn = async (memberId) => {
@@ -214,6 +244,8 @@ module.exports = {
   getMemberById,
   updateMember,
   deactivateMember,
+  deleteMember,
+  getActiveMembers,
   checkIn,
   checkOut,
 };

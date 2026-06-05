@@ -11,8 +11,9 @@ router.post("/", memberController.createMember);
 router.get("/", memberController.getMembers);
 router.get("/:id", memberController.getMemberById);
 router.put("/:id", memberController.updateMember);
-router.delete("/:id", memberController.deactivateMember);
-
+router.delete("/:id", memberController.deleteMember);
+// 👉 NEW route – list only ACTIVE members
+router.get("/active", memberController.getActiveMembers);
 // Attendance Log Endpoints
 router.post("/:id/checkin", memberController.checkIn);
 router.post("/:id/checkout", memberController.checkOut);

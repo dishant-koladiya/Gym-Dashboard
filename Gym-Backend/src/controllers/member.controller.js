@@ -37,6 +37,16 @@ const getMemberById = async (req, res, next) => {
   }
 };
 
+/** Get only ACTIVE members */
+const getActiveMembers = async (req, res, next) => {
+  try {
+    const members = await memberService.getActiveMembers();
+    return sendSuccess(res, "Active members retrieved.", members, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Controller to update member properties.
  */
@@ -85,12 +95,26 @@ const checkOut = async (req, res, next) => {
   }
 };
 
+/**
+ * Controller to permanently delete a member.
+ */
+const deleteMember = async (req, res, next) => {
+  try {
+    const member = await memberService.deleteMember(req.params.id);
+    return sendSuccess(res, "Member deleted permanently.", member, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createMember,
   getMembers,
   getMemberById,
   updateMember,
   deactivateMember,
+  deleteMember,
+  getActiveMembers,
   checkIn,
   checkOut,
 };
