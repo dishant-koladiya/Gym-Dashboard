@@ -1,149 +1,296 @@
 # Gym-Dashboard
 
-A full-stack Gym Management Dashboard with a React + Tailwind frontend and a Node.js + TypeScript backend using Prisma ORM and PostgreSQL.
+Comprehensive documentation for the Gym-Dashboard full-stack project.
 
-This README summarizes the project layout, features, required dependencies, and step-by-step instructions to run the frontend and backend locally.
+This repository contains two main workspaces:
+
+- Gym-Backend — Node.js + TypeScript backend using Express, Prisma ORM and PostgreSQL
+- Gym-Frontend — React + TypeScript frontend built with Vite and styled with Tailwind CSS
+
+This README explains the project, prerequisites, installation and configuration, how to run locally (including Prisma/PostgreSQL), API reference, environment variables, Docker setup, and common troubleshooting tips.
 
 ---
 
-## Project structure
+## Table of Contents
 
-- Gym-Backend/  - Node.js + TypeScript backend using Express, Prisma ORM and PostgreSQL
-- Gym-Frontend/ - React + TypeScript frontend built with Vite and styled with Tailwind CSS
+- Project overview
+- Tech stack
+- Features
+- Project structure
+- Prerequisites
+- Environment variables
+- Backend setup (Gym-Backend)
+  - Install
+  - Database setup (PostgreSQL + Prisma)
+  - Run
+  - Common commands
+- Frontend setup (Gym-Frontend)
+  - Install
+  - Configure backend connection
+  - Run
+- API reference (common endpoints)
+- Docker / docker-compose (optional)
+- Troubleshooting
+- Contributing
+- License
+
+---
+
+## Project overview
+
+Gym-Dashboard is a full-stack admin console for gym management. It provides tools for member management, authentication, billing/transactions, check-ins, and admin settings. The frontend is an interactive React app while the backend is an API server using Prisma to talk to a PostgreSQL database.
+
+---
+
+## Tech stack
+
+- Frontend: React, TypeScript, Vite, Tailwind CSS
+- Backend: Node.js, TypeScript, Express
+- ORM: Prisma
+- Database: PostgreSQL
+- Auth: JWT (recommended)
+- Other: dotenv, bcrypt (password hashing), jsonwebtoken
 
 ---
 
 ## Features
 
-- User authentication (login endpoint: `api/auth/login`)
-- Member management (create, update, list members)
+- Secure authentication (login endpoint: `POST /api/auth/login`)
+- Member CRUD (create, read, update, delete)
 - Billing & transactions (checkout, payments, invoices)
 - Check-in / Check-out tracking
-- Admin settings and a Database Backend Connection panel in the UI
-- Prisma for database modeling and migrations
+- Admin settings UI with dynamic backend connection
+- Prisma models & migrations for easy schema evolution
+
+---
+
+## Project structure
+
+Top-level layout:
+
+Gym-Dashboard/
+- Gym-Backend/
+  - prisma/           # Prisma schema & migration files
+  - src/              # Backend source (routes, controllers, services)
+  - package.json
+  - tsconfig.json
+- Gym-Frontend/
+  - src/              # React app
+  - package.json
+  - vite.config.ts
+- README.md
 
 ---
 
 ## Prerequisites
 
-- Node.js 18+ and npm
-- PostgreSQL database (local or hosted)
+- Node.js 18+ and npm (or yarn)
+- PostgreSQL (local, Docker, or hosted)
+- Git (to clone the repository)
+
+Optional but recommended:
+- Docker & docker-compose (for local PostgreSQL and reproducible dev environment)
+
+---
+
+## Environment variables
+
+Create a `.env` file in `Gym-Backend/` with the following variables (example):
+
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public"
+PORT=5000
+JWT_SECRET=your_jwt_secret
+
+Frontend can store minimal runtime settings (if used), for example in `Gym-Frontend/.env`:
+
+VITE_API_BASE_URL=http://localhost:5000
+
+Note: Vite env variables must be prefixed with `VITE_` to be embedded in the client.
 
 ---
 
 ## Backend (Gym-Backend)
 
-Dependencies (typical):
-- Node.js + TypeScript
-- Express
-- Prisma
-- @prisma/client
-- dotenv
-- jsonwebtoken (if JWT auth used)
-- bcrypt (or bcryptjs) for password hashing
+### Install
 
-Environment variables (in Gym-Backend/.env):
-- DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
-- PORT=5000
-- JWT_SECRET=your_jwt_secret
+1. Open a terminal and go to the backend directory:
 
-How to run backend locally:
-1. Change into the backend folder:
-   ```bash
-   cd Gym-Backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up your PostgreSQL database and update `DATABASE_URL` in `Gym-Backend/.env`.
-4. Run Prisma generate / migrate (create the DB schema):
-   ```bash
-   npx prisma generate
-   npx prisma migrate dev --name init
-   ```
-   If you only want to explore the DB, you can also run:
-   ```bash
-   npx prisma studio
-   ```
-5. Start the backend in development mode:
-   ```bash
-   npm run dev
-   ```
-   The backend will usually run on: http://localhost:5000 (adjust PORT in `.env` if needed)
+```bash
+cd Gym-Backend
+npm install
+```
 
-Notes:
-- The backend expects a PostgreSQL database. Make sure the database is created and reachable from your machine.
-- Prisma Studio provides a browser GUI to view and edit data.
+### Database setup (PostgreSQL + Prisma)
+
+1. Ensure PostgreSQL is running and you have created a database.
+2. Update `Gym-Backend/.env` with your `DATABASE_URL`.
+3. Generate the Prisma client:
+
+```bash
+npx prisma generate
+```
+
+4. Create and apply migrations (development):
+
+```bash
+npx prisma migrate dev --name init
+```
+
+This will create the database schema based on `prisma/schema.prisma` and update the migrations folder.
+
+You can inspect and manage data using Prisma Studio:
+
+```bash
+npx prisma studio
+```
+
+### Run backend
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Common npm scripts you may find in `package.json`:
+- `dev` — start the server using ts-node-dev / nodemon
+- `build` — compile TypeScript to JavaScript
+- `start` — start compiled production server
+
+The backend typically listens on port `5000` (set with PORT in `.env`).
 
 ---
 
 ## Frontend (Gym-Frontend)
 
-Dependencies (typical):
-- React + TypeScript
-- Vite
-- Tailwind CSS
-- Axios or fetch for HTTP requests
+### Install
 
-How to run frontend locally:
-1. Change into the frontend folder:
-   ```bash
-   cd Gym-Frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Configure connection to your backend. Two options:
-   - Option A (UI): Start the frontend and use the Settings > Database Backend Connection panel to enter the backend URL (e.g. `http://localhost:5000`) and a Bearer token if routes are protected.
-   - Option B (code): Edit `src/data.ts` and set `defaultSettings.backendUrl` to your backend URL and `defaultSettings.backendToken` if needed.
-4. Start the frontend dev server:
-   ```bash
-   npm run dev
-   ```
-   The frontend will usually run on: http://localhost:3000
+Open a terminal and install frontend dependencies:
 
----
+```bash
+cd Gym-Frontend
+npm install
+```
 
-## Run both locally (recommended flow)
+### Configure connection to backend
 
-1. Start the PostgreSQL server and ensure `Gym-Backend/.env` DATABASE_URL is correct.
-2. Start the backend (Gym-Backend):
-   ```bash
-   cd Gym-Backend
-   npm install
-   npx prisma generate
-   npx prisma migrate dev
-   npm run dev
-   ```
-3. Start the frontend (Gym-Frontend):
-   ```bash
-   cd ../Gym-Frontend
-   npm install
-   npm run dev
-   ```
-4. Open the frontend at `http://localhost:3000` and configure the backend URL (if not hardcoded) to `http://localhost:5000`.
+There are two ways to configure the frontend to talk to your backend:
+
+Option A — UI (recommended):
+- Start the frontend and use the built-in **Database Backend Connection** panel in the Settings screen to set the API base URL (for example `http://localhost:5000`) and, optionally, a JWT Bearer token.
+
+Option B — Code (default values):
+- Edit `src/data.ts` (or whichever settings file the app uses) and set `defaultSettings.backendUrl = 'http://localhost:5000'` and `defaultSettings.backendToken = 'YOUR_JWT_TOKEN'`.
+
+Note: If you're using Vite and want to use env variables, set `VITE_API_BASE_URL` and read process.env.VITE_API_BASE_URL in the client.
+
+### Run frontend
+
+Start the Vite dev server:
+
+```bash
+npm run dev
+```
+
+This usually runs on `http://localhost:3000` or a port Vite prints to the console.
 
 ---
 
-## API notes
+## API reference (common endpoints)
 
-- Authentication: `POST /api/auth/login` (returns JWT token if enabled)
-- Protected routes likely require `Authorization: Bearer <token>` header
-- Check the backend `src` folder for full API route list and payload shapes
+The backend API organizes routes under `/api`. The exact routes and request/response shapes live in `Gym-Backend/src`. Below are typical endpoints the frontend expects; verify actual paths and payloads in the backend code.
+
+- POST /api/auth/login
+  - Body: { email, password }
+  - Response: { token, user }
+
+- GET /api/members
+  - Headers: Authorization: Bearer <token>
+  - Response: list of members
+
+- GET /api/members/:id
+  - Response: member details
+
+- POST /api/members
+  - Body: member payload
+  - Creates a new member
+
+- PUT /api/members/:id
+  - Body: fields to update
+
+- DELETE /api/members/:id
+  - Deletes a member
+
+- POST /api/transactions/checkout
+  - Body: { memberId, amount, ... }
+  - Creates a payment/transaction record
+
+- POST /api/checkin
+  - Body: { memberId, timestamp }
+
+Adjust headers and payloads according to backend controller implementations. Protected endpoints will require `Authorization: Bearer <token>`.
 
 ---
 
-## Helpful commands
+## Docker (optional)
 
-- Launch Prisma Studio: `npx prisma studio`
-- Create or run migrations: `npx prisma migrate dev --name <name>`
-- Regenerate Prisma client: `npx prisma generate`
+Below is a minimal `docker-compose.yml` example to run a PostgreSQL database for local development. Place this at the repository root if you want a quick local DB.
+
+```yaml
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gymdb
+    ports:
+      - 5432:5432
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
+```
+
+After starting the DB with `docker-compose up -d`, set `DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gymdb?schema=public"` in `Gym-Backend/.env` and run Prisma migrate.
+
+You can also containerize backend and frontend; add service definitions and build steps for each app.
+
+---
+
+## Troubleshooting
+
+- "Database connection failed": Verify `DATABASE_URL` is correct and the DB server accepts connections. If using Docker, ensure the container is running and ports are exposed.
+- "Prisma migrate" errors: Check `prisma/schema.prisma` for syntax issues; run `npx prisma format` to check.
+- CORS errors: If the frontend can't reach the backend, enable CORS in the backend Express server or ensure the frontend uses the correct base URL.
+- Environment variables not applied in frontend: With Vite, env variables must use the `VITE_` prefix.
+
+---
+
+## Contributing
+
+Contributions are welcome. Suggested workflow:
+
+1. Fork the repository and create a branch for your change: `git checkout -b feat/my-change`
+2. Make changes and add tests where appropriate.
+3. Run the app locally and verify behavior.
+4. Create a pull request with a clear description of your changes.
+
+Please follow the existing code style and include clear commit messages.
+
+---
+
+## License
+
+This repository does not include a license file. Add a LICENSE (for example MIT) if you want to permit reuse.
 
 ---
 
 If you want, I can also:
-- Add example `.env` templates for backend and frontend
-- Add short HOWTO for creating a PostgreSQL Docker container for local dev
+- Add `Gym-Backend/.env.example` and `Gym-Frontend/.env.example` to the repo
+- Add a `docker-compose.yml` file to the repo and a simple `Makefile` or npm script to run the full stack locally
+- Generate a sample Postman collection or curl examples for the main API endpoints
 
