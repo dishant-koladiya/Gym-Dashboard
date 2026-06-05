@@ -43,6 +43,11 @@ export default function Header({
 
   return (
     <header className="sticky top-0 right-0 w-full h-16 bg-white border-b border-slate-200 flex justify-between items-center px-8 z-30">
+      {/* App Title */}
+      <div className="flex items-center gap-4 mr-4">
+        <h1 className="text-lg font-bold text-blue-900 whitespace-nowrap">Gym-Dashboard</h1>
+      </div>
+
       {/* Search Input Box */}
       <div className="flex-1 max-w-md">
         <div className="relative group">
