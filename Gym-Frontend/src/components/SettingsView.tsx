@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { AdminAccount, GymInfo, SystemSettings } from "../types";
-import { Save, RefreshCw, Smartphone, Key, Home, BellRing, Settings2 } from "lucide-react";
+import { Save, RefreshCw, Settings2, Key, Home, BellRing } from "lucide-react";
 
 interface SettingsViewProps {
   admin: AdminAccount;
@@ -28,11 +28,8 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
   const [gymWebsite, setGymWebsite] = useState(gym.website);
 
   // System settings state
-  const [theme, setTheme] = useState(settings.theme);
   const [emailUpdates, setEmailUpdates] = useState(settings.emailUpdates);
   const [desktopAlerts, setDesktopAlerts] = useState(settings.desktopAlerts);
-  const [backendUrl, setBackendUrl] = useState(settings.backendUrl || "");
-  const [backendToken, setBackendToken] = useState(settings.backendToken || "");
 
   // Password panel state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -54,11 +51,9 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
         website: gymWebsite,
       },
       settings: {
-        theme,
+        theme: "Light",
         emailUpdates,
         desktopAlerts,
-        backendUrl,
-        backendToken,
       },
     });
 
@@ -76,11 +71,8 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
       setGymAddress(gym.address);
       setGymPhone(gym.phone);
       setGymWebsite(gym.website);
-      setTheme(settings.theme);
       setEmailUpdates(settings.emailUpdates);
       setDesktopAlerts(settings.desktopAlerts);
-      setBackendUrl(settings.backendUrl || "");
-      setBackendToken(settings.backendToken || "");
     }
   };
 
@@ -272,107 +264,35 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
           </div>
         </div>
 
-        {/* Module 3: System, Theme and Alerts Notification Toggles */}
-        <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-sm">
+
+
+        {/* Module 3: Notification Alert Settings */}
+        {/* <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm">
           <h3 className="font-bold text-slate-805 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-blue-600" />
-            <span>Theme & Accessibility Preference</span>
+            <BellRing className="w-5 h-5 text-blue-600" />
+            <span>Notification Preferences</span>
           </h3>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Graphic Theme Style</label>
-              <div className="flex gap-2">
-                {["Light", "Dark", "Auto"].map((themeOpt) => {
-                  const isActive = theme === themeOpt;
-                  return (
-                    <button
-                      type="button"
-                      key={themeOpt}
-                      onClick={() => setTheme(themeOpt as any)}
-                      className={`px-4 py-2 text-xs font-bold rounded cursor-pointer border transition ${
-                        isActive
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {themeOpt} Mode
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-slate-700 group">
+            <input
+              type="checkbox"
+              checked={emailUpdates}
+              onChange={(e) => setEmailUpdates(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-600 focus:outline-none cursor-pointer"
+            />
+            <span>Email daily transactions summaries automatically</span>
+          </label>
 
-            {/* Notification alert checkboxes */}
-            <div className="pt-4 border-t border-slate-100 space-y-3">
-              <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
-                <BellRing className="w-3.5 h-3.5" />
-                <span>Email and Desktop Alert Settings</span>
-              </div>
-
-              <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-slate-705 group">
-                <input
-                  type="checkbox"
-                  checked={emailUpdates}
-                  onChange={(e) => setEmailUpdates(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-600 focus:outline-none cursor-pointer"
-                />
-                <span>Email daily transactions summaries automatically</span>
-              </label>
-
-              <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-slate-705 group">
-                <input
-                  type="checkbox"
-                  checked={desktopAlerts}
-                  onChange={(e) => setDesktopAlerts(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-600 focus:outline-none cursor-pointer"
-                />
-                <span>Enable desktop popup warnings for expiring subscriptions</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* Module 4: Live PostgreSQL/Prisma Backend database connection parameters */}
-        <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-sm">
-          <h3 className="font-bold text-slate-805 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-            <Settings2 className="w-5 h-5 text-emerald-600" />
-            <span>Database Backend Connection</span>
-          </h3>
-
-          <p className="text-slate-500 text-xs leading-relaxed">
-            Configure direct integration to synchronize all additions, changes, and queries to your live 
-            Prisma backend server. If left blank, the app runs in full-stack local demo sandbox mode (0 initial records).
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Prisma Backend API Base URL
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. http://localhost:5000 (Omit trailing slash)"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600"
-                value={backendUrl}
-                onChange={(e) => setBackendUrl(e.target.value)}
-              />
-            </div>
-
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Bearer JWT Authorization Token (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="Paste Bearer JWT token if your backend has protected routes"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 font-mono text-xs"
-                value={backendToken}
-                onChange={(e) => setBackendToken(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
+          <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-slate-700 group">
+            <input
+              type="checkbox"
+              checked={desktopAlerts}
+              onChange={(e) => setDesktopAlerts(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-600 focus:outline-none cursor-pointer"
+            />
+            <span>Enable desktop popup warnings for expiring subscriptions</span>
+          </label>
+        </div> */}
 
       </div>
     </form>

@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { Transaction } from "../types";
-import { DollarSign, ShieldAlert, TrendingUp, Download, MoreVertical, CreditCard, Banknote, Landmark, QrCode } from "lucide-react";
+import { DollarSign, Download, CreditCard, Banknote, Landmark, QrCode } from "lucide-react";   // MoreVertical is used for the 3 dot which we removed
 
 interface PaymentsViewProps {
   transactions: Transaction[];
@@ -38,16 +38,49 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
+  // Pagination
+  const ITEMS_PER_PAGE = 5;
+  const [paymentPage, setPaymentPage] = useState(1);
+  const totalPaymentPages = Math.ceil(sortedTx.length / ITEMS_PER_PAGE);
+  const paginatedTx = sortedTx.slice((paymentPage - 1) * ITEMS_PER_PAGE, paymentPage * ITEMS_PER_PAGE);
+
+  // Export all transactions to CSV
+  const handleExportCSV = () => {
+    const totalRev = transactions
+      .filter((tx) => tx.status === "Completed")
+      .reduce((acc, cur) => acc + cur.amount, 0);
+
+    const headers = ["Member Name", "Plan", "Status", "Payment Method", "Date", "Amount"];
+    const rows = transactions.map((tx) => [
+      tx.memberName,
+      tx.planName,
+      tx.status,
+      tx.paymentMethod,
+      tx.date,
+      tx.amount,
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.join(",")),
+      "",
+      `Total Revenue (Completed),${totalRev}`,
+      `Total Transactions,${transactions.length}`,
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transactions_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Live dynamic stats computation
   const totalRevenue = transactions
     .filter((tx) => tx.status === "Completed")
     .reduce((acc, current) => acc + current.amount, 0);
-
-  const pendingDues = transactions
-    .filter((tx) => tx.status === "Pending")
-    .reduce((acc, current) => acc + current.amount, 0);
-
-  const pendingCount = transactions.filter((tx) => tx.status === "Pending").length;
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -60,21 +93,13 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
           </p>
         </div>
         
-        <button
-          onClick={() => {
-            alert("Generating full audit invoice logs spreadsheet...\nSaved to secure download storage.");
-          }}
-          className="bg-white border border-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-slate-350 transition cursor-pointer"
-        >
-          <Download className="w-4.5 h-4.5 text-slate-500" />
-          <span>Export Report</span>
-        </button>
+
       </div>
 
       {/* Finance Bento Cards Summary */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Total Revenue MTD */}
-        <div className="md:col-span-4 bg-white p-6 border border-slate-200 rounded-lg flex flex-col justify-between h-44 hover:border-blue-500 transition Group">
+        <div className="md:col-span-12 bg-white p-6 border border-slate-200 rounded-lg flex flex-col justify-between h-44 hover:border-blue-500 transition">
           <div className="flex justify-between items-start">
             <div className="p-2.5 bg-blue-50 text-blue-600 rounded">
               <DollarSign className="w-5 h-5" />
@@ -88,42 +113,6 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
             <h3 className="text-2xl font-bold text-slate-800">₹{totalRevenue.toLocaleString()}</h3>
           </div>
         </div>
-
-        {/* Pending Card */}
-        <div className="md:col-span-4 bg-white p-6 border border-slate-200 rounded-lg flex flex-col justify-between h-44 hover:border-red-500 transition Group">
-          <div className="flex justify-between items-start">
-            <div className="p-2.5 bg-rose-50 text-rose-600 rounded">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <span className="text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full">
-              {pendingCount} Members
-            </span>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Pending Dues</p>
-            <h3 className="text-2xl font-bold text-rose-600">₹{pendingDues.toLocaleString()}</h3>
-          </div>
-        </div>
-
-        {/* Projected Annual block */}
-        <div className="md:col-span-4 bg-blue-600 p-6 rounded-lg flex flex-col justify-between h-44 text-white relative overflow-hidden shadow-sm">
-          <div className="relative z-10">
-            <p className="text-blue-200 text-xs font-semibold uppercase tracking-widest mb-1">Projected Annual</p>
-            <h3 className="text-2xl font-bold text-white">₹{(totalRevenue * 12).toLocaleString()}</h3>
-          </div>
-          <div className="relative z-10 flex items-center gap-2 text-xs text-blue-100 font-medium">
-            <div className="flex -space-x-1.5 font-mono">
-              <div className="w-6 h-6 rounded-full border border-blue-400 bg-blue-500 flex items-center justify-center text-[9px] font-bold">JD</div>
-              <div className="w-6 h-6 rounded-full border border-blue-400 bg-blue-400 flex items-center justify-center text-[9px] font-bold">SC</div>
-              <div className="w-6 h-6 rounded-full border border-blue-400 bg-blue-700 flex items-center justify-center text-[9px] font-bold">+8</div>
-            </div>
-            <span>New high-tier memberships today</span>
-          </div>
-
-          <div className="absolute -bottom-6 -right-6 opacity-10 transform rotate-12">
-            <TrendingUp className="w-32 h-32 text-white" />
-          </div>
-        </div>
       </div>
 
       {/* Recent Transactions List Section */}
@@ -133,6 +122,14 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
           
           {/* Internal Filters dropdowns */}
           <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="bg-white border border-slate-200 text-slate-700 font-bold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <span>Export</span>
+            </button>
             <select
               className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-600 px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-blue-600 cursor-pointer"
               value={methodFilter}
@@ -177,7 +174,7 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
                   </td>
                 </tr>
               ) : (
-                sortedTx.map((tx) => {
+                paginatedTx.map((tx) => {
                   let MethodIcon = CreditCard;
                   if (tx.paymentMethod === "Cash") MethodIcon = Banknote;
                   if (tx.paymentMethod === "Bank Transfer") MethodIcon = Landmark;
@@ -230,7 +227,7 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
                           }}
                           className="p-1 hover:bg-slate-100 transition rounded text-slate-400 hover:text-slate-700 cursor-pointer"
                         >
-                          <MoreVertical className="w-4 h-4" />
+                          {/* <MoreVertical className="w-4 h-4" /> */}
                         </button>
                       </td>
                     </tr>
@@ -243,12 +240,35 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
 
         {/* Footer info logs */}
         <div className="px-6 py-4 bg-slate-50 text-xs text-slate-500 flex items-center justify-between border-t border-slate-100">
-          <span>Showing 1-{sortedTx.length} of {transactions.length} transactions history</span>
+          <span>Showing {paginatedTx.length} of {sortedTx.length} transactions history</span>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-500 rounded font-semibold cursor-not-allowed" disabled>
+            <button
+              disabled={paymentPage <= 1}
+              onClick={() => setPaymentPage((p) => Math.max(1, p - 1))}
+              className={`px-4 py-2 rounded font-semibold transition cursor-pointer ${
+                paymentPage <= 1 ? "bg-white border border-slate-200 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
               Previous
             </button>
-            <button className="px-4 py-2 bg-white border border-slate-250 text-slate-600 rounded font-bold hover:bg-slate-50 transition cursor-pointer">
+            {Array.from({ length: totalPaymentPages }, (_, i) => (
+              <button
+                key={i + 1}
+                onClick={() => setPaymentPage(i + 1)}
+                className={`px-4 py-2 rounded font-bold transition cursor-pointer ${
+                  paymentPage === i + 1 ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              disabled={paymentPage >= totalPaymentPages}
+              onClick={() => setPaymentPage((p) => Math.min(totalPaymentPages, p + 1))}
+              className={`px-4 py-2 rounded font-semibold transition cursor-pointer ${
+                paymentPage >= totalPaymentPages ? "bg-white border border-slate-200 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
               Next
             </button>
           </div>

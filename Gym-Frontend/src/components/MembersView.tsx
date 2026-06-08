@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { z } from "zod";
 import { Member, Screen } from "../types";
+import { PACKAGES } from "../data";
 import {
   Search,
   Filter,
@@ -13,9 +15,16 @@ import {
   Trash2,
   RefreshCcw,
   X,
-  CreditCard,
+  Users,
+  Award,
+  Ban,
   UserCheck,
-  UserPlus
+  UserPlus,
+  QrCode,
+  ShieldCheck,
+  Banknote,
+  Phone,
+  MapPin
 } from "lucide-react";
 
 interface MembersViewProps {
@@ -24,6 +33,7 @@ interface MembersViewProps {
   onEditMember: (member: Member) => void;
   onDeleteMember: (id: string) => void;
   onRenewMember: (id: string) => void;
+  onConfirmRenewal: (memberId: string, planName: string, amount: number, paymentType: "QR" | "Cash") => void;
 }
 
 export default function MembersView({
@@ -32,6 +42,7 @@ export default function MembersView({
   onEditMember,
   onDeleteMember,
   onRenewMember,
+  onConfirmRenewal,
 }: MembersViewProps) {
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
@@ -47,11 +58,100 @@ export default function MembersView({
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [newAge, setNewAge] = useState("");
+  const [newAddress, setNewAddress] = useState("");
   const [newPlan, setNewPlan] = useState("Monthly Basic");
   const [newStatus, setNewStatus] = useState<"Active" | "Expired" | "Expiring">("Active");
 
+  // Auto-compute member status from expiryDate (14-day threshold)
+  const monthMap: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+  const getMemberStatus = (m: Member): "Active" | "Expired" | "Expiring" => {
+    if (!m.expiryDate || m.expiryDate === "No Expiry") return "Active";
+    const parts = m.expiryDate.match(/(\w+)\s+(\d+),\s+(\d+)/);
+    if (!parts) return "Active";
+    const expiry = new Date(parseInt(parts[3]), monthMap[parts[1]], parseInt(parts[2]));
+    const daysDiff = (expiry.getTime() - Date.now()) / (1000 * 3600 * 24);
+    if (daysDiff < 0) return "Expired";
+    if (daysDiff <= 14) return "Expiring";
+    return "Active";
+  };
+
+  const membersWithStatus = members.map((m) => ({ ...m, status: getMemberStatus(m) }));
+
+  // Member info card state
+  const [activeInfoMember, setActiveInfoMember] = useState<string | null>(null);
+  const infoCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (infoCardRef.current && !infoCardRef.current.contains(e.target as Node)) {
+        setActiveInfoMember(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Renewal modal state
+  const [renewalMember, setRenewalMember] = useState<Member | null>(null);
+  const [renewalPlan, setRenewalPlan] = useState(PACKAGES[1]);
+  const [renewalPaymentType, setRenewalPaymentType] = useState<"QR" | "Cash">("QR");
+
+  // Validation state
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const validateName = (v: string) => !v.trim() ? "Name is required" : "";
+  const validateEmail = (v: string) => !v.trim() ? "Email is required" : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? "Enter a valid email address" : "";
+  const validatePhone = (v: string) => {
+    const digits = v.replace(/\D/g, "");
+    if (!digits) return "Phone number is required";
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2).length !== 10 || !/^[6-9]/.test(digits.slice(2)) ? "Enter a valid 10-digit  mobile number" : "";
+    if (digits.length === 10) return !/^[6-9]/.test(digits) ? "Indian mobile must start with 6, 7, 8, or 9" : "";
+    return "Enter a valid 10-digit mobile number";
+  };
+  const validateAge = (v: string) => {
+    const n = parseInt(v);
+    return !v.trim() ? "Age is required" : isNaN(n) || n < 12 || n > 90 ? "Age must be between 12 and 90" : "";
+  };
+
+  const addressSchema = z
+    .string()
+    .min(1, "Address is required")
+    .min(5, "Address must be at least 5 characters")
+    .max(200, "Address must be at most 200 characters");
+
+  const validateAddress = (v: string) => {
+    const result = addressSchema.safeParse(v);
+    return result.success ? "" : result.error.issues[0].message;
+  };
+
+  const validateField = (field: string, value: string) => {
+    let err = "";
+    if (field === "name") err = validateName(value);
+    else if (field === "email") err = validateEmail(value);
+    else if (field === "phone") err = validatePhone(value);
+    else if (field === "age") err = validateAge(value);
+    else if (field === "address") err = validateAddress(value);
+    setErrors((prev) => ({ ...prev, [field]: err }));
+    return err;
+  };
+
+  const handleBlur = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const val = field === "name" ? newName : field === "email" ? newEmail : field === "phone" ? newPhone : field === "age" ? newAge : field === "address" ? newAddress : "";
+    validateField(field, val);
+  };
+
+  const formatPhone = (v: string) => {
+    const digits = v.replace(/\D/g, "");
+    if (digits.length <= 10) return digits;
+    if (digits.startsWith("91") && digits.length <= 12) return "+91 " + digits.slice(2);
+    return v;
+  };
+
   // Filter computation
-  const filteredMembers = members.filter((m) => {
+  const filteredMembers = membersWithStatus.filter((m) => {
     const matchesSearch =
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,41 +163,54 @@ export default function MembersView({
     return matchesSearch && matchesStatus && matchesPlan;
   });
 
-  // Calculate quick stats on current grid
-  const totalCount = members.length;
-  const activeCount = members.filter((m) => m.status === "Active").length;
-  const expiringCount = members.filter((m) => m.status === "Expiring").length;
-  const expiredCount = members.filter((m) => m.status === "Expired").length;
+  // Pagination
+  const ITEMS_PER_PAGE = 5;
+  const [memberPage, setMemberPage] = useState(1);
+  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
+  const paginatedMembers = filteredMembers.slice((memberPage - 1) * ITEMS_PER_PAGE, memberPage * ITEMS_PER_PAGE);
 
-  const monthlyRevenue = members.filter((m) => m.status === "Active").reduce((sum, m) => {
-    let rate = m.price;
-    if (m.plan.toLowerCase().includes("6 month")) {
-      rate = m.price / 6;
-    } else if (m.plan.toLowerCase().includes("annual") || m.plan.toLowerCase().includes("year") || m.plan.toLowerCase().includes("12 month")) {
-      rate = m.price / 12;
-    }
-    return sum + (rate || 0);
-  }, 0);
+  // Calculate quick stats from computed status (14-day expiry threshold)
+  const totalCount = membersWithStatus.length;
+  const activeCount = membersWithStatus.filter((m) => m.status === "Active").length;
+  const expiringCount = membersWithStatus.filter((m) => m.status === "Expiring").length;
+  const expiredCount = membersWithStatus.filter((m) => m.status === "Expired").length;
+
+  const memberStats = [
+    { title: "Total Members", value: totalCount.toLocaleString(), change: "All members", isPositive: true, color: "bg-blue-50 text-blue-600", icon: Users },
+    { title: "Active Plans", value: activeCount.toLocaleString(), change: "On-going plans", isPositive: true, color: "bg-emerald-50 text-emerald-600", icon: Award },
+    { title: "Expiring Soon", value: expiringCount.toString(), change: "Needs attention", isPositive: false, color: "bg-amber-50 text-amber-600", icon: UserCheck },
+    { title: "Expired Memberships", value: expiredCount.toString(), change: "Requires action", isPositive: false, color: "bg-rose-50 text-rose-600", icon: Ban },
+  ];
 
   const handleOpenAddModal = () => {
-    // Reset form fields
     setNewName("");
     setNewEmail("");
     setNewPhone("");
+    setNewAge("");
+    setNewAddress("");
     setNewPlan("Monthly Basic");
     setNewStatus("Active");
+    setErrors({});
+    setTouched({});
     setIsAddModalOpen(true);
   };
 
   const handleCreateMemberSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newEmail) return;
 
-    // Default dates based on packaging
+    // Validate all fields
+    const allTouched = { name: true, email: true, phone: true, age: true, address: true };
+    setTouched(allTouched);
+    const nameErr = validateField("name", newName);
+    const emailErr = validateField("email", newEmail);
+    const phoneErr = validateField("phone", newPhone);
+    const ageErr = validateField("age", newAge);
+    const addressErr = validateField("address", newAddress);
+    if (nameErr || emailErr || phoneErr || ageErr || addressErr) return;
+
     const today = new Date();
     const joinDateStr = today.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
     
-    // Add 1 month or 6 months based on package
     const expiry = new Date();
     if (newPlan.includes("6 Months")) {
       expiry.setMonth(expiry.getMonth() + 6);
@@ -111,7 +224,9 @@ export default function MembersView({
     onAddMember({
       name: newName,
       email: newEmail,
-      phone: newPhone || "+91 99999 88888",
+      phone: newPhone.startsWith("+") ? newPhone : "+91 " + newPhone.replace(/\D/g, ""),
+      age: parseInt(newAge),
+      address: newAddress,
       joinDate: joinDateStr,
       expiryDate: expiryDateStr,
       plan: newPlan,
@@ -129,8 +244,12 @@ export default function MembersView({
     setNewName(member.name);
     setNewEmail(member.email);
     setNewPhone(member.phone);
+    setNewAge(member.age.toString());
+    setNewAddress(member.address);
     setNewPlan(member.plan);
     setNewStatus(member.status);
+    setErrors({});
+    setTouched({});
     setIsEditModalOpen(true);
   };
 
@@ -138,11 +257,22 @@ export default function MembersView({
     e.preventDefault();
     if (!activeMemberToEdit) return;
 
+    const allTouched = { name: true, email: true, phone: true, age: true, address: true };
+    setTouched(allTouched);
+    const nameErr = validateField("name", newName);
+    const emailErr = validateField("email", newEmail);
+    const phoneErr = validateField("phone", newPhone);
+    const ageErr = validateField("age", newAge);
+    const addressErr = validateField("address", newAddress);
+    if (nameErr || emailErr || phoneErr || ageErr || addressErr) return;
+
     onEditMember({
       ...activeMemberToEdit,
       name: newName,
       email: newEmail,
       phone: newPhone,
+      age: parseInt(newAge),
+      address: newAddress,
       plan: newPlan,
       status: newStatus,
     });
@@ -170,47 +300,25 @@ export default function MembersView({
         </button>
       </div>
 
-      {/* Quick Summary Section inside directory context */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-lg border border-slate-200">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Total Members</p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold text-slate-800">{totalCount}</h3>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              Live DB
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-lg border border-slate-200">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Active Plans</p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold text-slate-800">{activeCount}</h3>
-            <span className="text-[10px] bg-blue-50 text-blue-600 p-1.5 rounded-full">
-              <UserCheck className="w-3.5 h-3.5" />
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-lg border border-slate-200">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Expiring Soon</p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold text-slate-800">{expiringCount}</h3>
-            <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 font-bold rounded-full">
-              Attention
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-lg border border-slate-200">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Monthly Revenue Rate</p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold text-slate-800">₹{Math.round(monthlyRevenue).toLocaleString()}</h3>
-            <span className="text-[10px] bg-blue-50 text-blue-600 p-1.5 rounded-full">
-              <CreditCard className="w-3.5 h-3.5" />
-            </span>
-          </div>
-        </div>
+      {/* Dashboard-style stat cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {memberStats.map((stat, i) => {
+          const Icon = stat.icon;
+          return (
+            <div key={i} className="bg-white border border-slate-200 p-6 rounded-lg transition-all hover:border-blue-500 hover:shadow-sm">
+              <div className="flex justify-between items-start mb-4">
+                <div className={`p-2.5 rounded-lg ${stat.color}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${stat.isPositive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                  {stat.change}
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">{stat.title}</p>
+              <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{stat.value}</h3>
+            </div>
+          );
+        })}
       </div>
 
       {/* Directory Filter Panel */}
@@ -293,21 +401,57 @@ export default function MembersView({
                   </td>
                 </tr>
               ) : (
-                filteredMembers.map((member) => (
+                paginatedMembers.map((member) => (
                   <tr key={member.id} className="hover:bg-slate-50/60 transition duration-150 group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full border border-slate-200 overflow-hidden bg-slate-50 shadow-xs flex-shrink-0">
-                          {member.avatarUrl ? (
-                            <img
-                              referrerPolicy="no-referrer"
-                              src={member.avatarUrl}
-                              alt="Member Profile image"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center font-bold text-blue-700 bg-blue-50 text-xs">
-                              {member.name.split(" ").map((n) => n[0]).join("")}
+                        <div className="relative">
+                          <div
+                            onClick={() => setActiveInfoMember(activeInfoMember === member.id ? null : member.id)}
+                            className="h-10 w-10 rounded-full border border-slate-200 overflow-hidden bg-slate-50 shadow-xs flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
+                            title="View contact info"
+                          >
+                            {member.avatarUrl ? (
+                              <img
+                                referrerPolicy="no-referrer"
+                                src={member.avatarUrl}
+                                alt="Member Profile image"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center font-bold text-blue-700 bg-blue-50 text-xs">
+                                {member.name.split(" ").map((n) => n[0]).join("")}
+                              </div>
+                            )}
+                          </div>
+                          {activeInfoMember === member.id && (
+                            <div
+                              ref={infoCardRef}
+                              className="absolute left-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-lg shadow-xl z-40 p-4 animate-scale-in"
+                            >
+                              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
+                                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-700">
+                                  {member.name.split(" ").map((n) => n[0]).join("")}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-slate-800 leading-tight">{member.name}</p>
+                                  <p className="text-[10px] text-slate-400 font-mono font-semibold">{member.id}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-2.5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                                  </div>
+                                  <span className="text-xs font-medium text-slate-700">{member.phone}</span>
+                                </div>
+                                <div className="flex items-start gap-2.5">
+                                  <div className="w-7 h-7 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                                  </div>
+                                  <span className="text-xs font-medium text-slate-700 leading-snug">{member.address}</span>
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -340,7 +484,7 @@ export default function MembersView({
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2.5">
                         <button
-                          onClick={() => onRenewMember(member.id)}
+                          onClick={() => { setRenewalMember(member); setRenewalPlan(PACKAGES[1]); setRenewalPaymentType("QR"); }}
                           className="bg-blue-600 text-white font-bold text-xs px-3.5 py-1.5 rounded hover:bg-blue-700 transition active:scale-[0.97] cursor-pointer"
                         >
                           Renew
@@ -377,16 +521,39 @@ export default function MembersView({
         {/* Footer/Pagination */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
           <p className="text-slate-500">
-            Showing <span className="font-bold text-slate-800">{filteredMembers.length}</span> of{" "}
-            <span className="font-bold text-slate-800">{members.length}</span> members records
+            Showing <span className="font-bold text-slate-800">{paginatedMembers.length}</span> of{" "}
+            <span className="font-bold text-slate-800">{filteredMembers.length}</span> members records
           </p>
           <div className="flex gap-2">
-            <button className="px-3 py-1 bg-white border border-slate-200 text-slate-500 rounded font-semibold cursor-not-allowed" disabled>
+            <button
+              disabled={memberPage <= 1}
+              onClick={() => setMemberPage((p) => Math.max(1, p - 1))}
+              className={`px-3 py-1 rounded font-semibold transition cursor-pointer ${
+                memberPage <= 1 ? "bg-white border border-slate-200 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
               Previous
             </button>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded font-bold">1</button>
-            <button className="px-3 py-1 bg-white border border-slate-250 text-slate-600 rounded font-semibold hover:bg-slate-50 transition cursor-pointer">2</button>
-            <button className="px-3 py-1 bg-white border border-slate-250 text-slate-600 rounded font-semibold hover:bg-slate-50 transition cursor-pointer">Next</button>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i + 1}
+                onClick={() => setMemberPage(i + 1)}
+                className={`px-3 py-1 rounded font-bold transition cursor-pointer ${
+                  memberPage === i + 1 ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              disabled={memberPage >= totalPages}
+              onClick={() => setMemberPage((p) => Math.min(totalPages, p + 1))}
+              className={`px-3 py-1 rounded font-semibold transition cursor-pointer ${
+                memberPage >= totalPages ? "bg-white border border-slate-200 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
@@ -398,73 +565,91 @@ export default function MembersView({
             <div className="flex justify-between items-center px-6 py-4 bg-slate-50 border-b border-slate-200">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-blue-600" />
-                <span>Add Record: New Member</span>
+                <span>Add New Member</span>
               </h3>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleCreateMemberSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleCreateMemberSubmit} className="p-6 space-y-4" noValidate>
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Member Full Name</label>
                 <input
-                  required
                   type="text"
                   placeholder="e.g. Ramesh Patel"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600"
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.name && errors.name ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => { setNewName(e.target.value); if (touched.name) validateField("name", e.target.value); }}
+                  onBlur={() => handleBlur("name")}
                 />
+                {touched.name && errors.name && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.name}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Professional Email</label>
                 <input
-                  required
                   type="email"
                   placeholder="name@gmail.com"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600"
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.email && errors.email ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
                   value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
+                  onChange={(e) => { setNewEmail(e.target.value); if (touched.email) validateField("email", e.target.value); }}
+                  onBlur={() => handleBlur("email")}
                 />
+                {touched.email && errors.email && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.email}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Phone Number</label>
                 <input
                   type="tel"
-                  placeholder="+91 98765 00000"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600"
+                  placeholder="+91 98765 43210"
+                  maxLength={18}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.phone && errors.phone ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
+                  onChange={(e) => { setNewPhone(formatPhone(e.target.value)); if (touched.phone) validateField("phone", formatPhone(e.target.value)); }}
+                  onBlur={() => handleBlur("phone")}
                 />
+                {touched.phone && errors.phone && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.phone}</p>}
+                {!errors.phone && newPhone && !touched.phone && <p className="text-[11px] text-slate-400 mt-0.5">Indian mobile: 10 digits starting with 6-9</p>}
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Membership Plan Option</label>
-                <select
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
-                  value={newPlan}
-                  onChange={(e) => setNewPlan(e.target.value)}
-                >
-                  <option value="Monthly Basic">Monthly Basic — ₹1,200</option>
-                  <option value="Standard - 6 Months">Standard - 6 Months — ₹4,500</option>
-                  <option value="Premium Annual">Premium Annual — ₹8,000</option>
-                </select>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Age</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 25"
+                  min={12}
+                  max={120}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.age && errors.age ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
+                  value={newAge}
+                  onChange={(e) => { setNewAge(e.target.value); if (touched.age) validateField("age", e.target.value); }}
+                  onBlur={() => handleBlur("age")}
+                />
+                {touched.age && errors.age && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.age}</p>}
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Account Status</label>
-                <select
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as any)}
-                >
-                  <option value="Active">Active Subscription</option>
-                  <option value="Expired">Expired / Suspended</option>
-                  <option value="Expiring">Expiring (Attention)</option>
-                </select>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Address</label>
+                <textarea
+                  placeholder="e.g. 42, MG Road, Bangalore - 560001"
+                  rows={2}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition resize-none ${
+                    touched.address && errors.address ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
+                  value={newAddress}
+                  onChange={(e) => { setNewAddress(e.target.value); if (touched.address) validateField("address", e.target.value); }}
+                  onBlur={() => handleBlur("address")}
+                />
+                {touched.address && errors.address && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.address}</p>}
               </div>
 
               <div className="pt-4 flex gap-3 justify-end border-t border-slate-100">
@@ -501,37 +686,78 @@ export default function MembersView({
               </button>
             </div>
             
-            <form onSubmit={handleUpdateMemberSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleUpdateMemberSubmit} className="p-6 space-y-4" noValidate>
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Member Full Name</label>
                 <input
-                  required
                   type="text"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600"
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.name && errors.name ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => { setNewName(e.target.value); if (touched.name) validateField("name", e.target.value); }}
+                  onBlur={() => handleBlur("name")}
                 />
+                {touched.name && errors.name && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.name}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Professional Email</label>
                 <input
-                  required
                   type="email"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600"
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.email && errors.email ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
                   value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
+                  onChange={(e) => { setNewEmail(e.target.value); if (touched.email) validateField("email", e.target.value); }}
+                  onBlur={() => handleBlur("email")}
                 />
+                {touched.email && errors.email && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.email}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Phone Number</label>
                 <input
                   type="tel"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600"
+                  maxLength={18}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.phone && errors.phone ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
+                  onChange={(e) => { setNewPhone(formatPhone(e.target.value)); if (touched.phone) validateField("phone", formatPhone(e.target.value)); }}
+                  onBlur={() => handleBlur("phone")}
                 />
+                {touched.phone && errors.phone && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.phone}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Age</label>
+                <input
+                  type="number"
+                  min={12}
+                  max={120}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition ${
+                    touched.age && errors.age ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
+                  value={newAge}
+                  onChange={(e) => { setNewAge(e.target.value); if (touched.age) validateField("age", e.target.value); }}
+                  onBlur={() => handleBlur("age")}
+                />
+                {touched.age && errors.age && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.age}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Address</label>
+                <textarea
+                  rows={2}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded text-sm focus:outline-none transition resize-none ${
+                    touched.address && errors.address ? "border-red-400 focus:border-red-500" : "border-slate-200 focus:border-blue-600"
+                  }`}
+                  value={newAddress}
+                  onChange={(e) => { setNewAddress(e.target.value); if (touched.address) validateField("address", e.target.value); }}
+                  onBlur={() => handleBlur("address")}
+                />
+                {touched.address && errors.address && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.address}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -541,13 +767,13 @@ export default function MembersView({
                   value={newPlan}
                   onChange={(e) => setNewPlan(e.target.value)}
                 >
-                  <option value="Monthly Basic">Monthly Basic — ₹1,200</option>
-                  <option value="Standard - 6 Months">Standard - 6 Months — ₹4,500</option>
+                  <option value="Monthly Basic">Basic — ₹1,200</option>
+                  <option value="Standard - 6 Months">Standard — ₹4,500</option>
                   <option value="Premium Annual">Premium Annual — ₹8,000</option>
                 </select>
               </div>
 
-              <div className="space-y-1.5">
+              {/* <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Account Status</label>
                 <select
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
@@ -558,7 +784,7 @@ export default function MembersView({
                   <option value="Expired">Expired / Suspended</option>
                   <option value="Expiring">Expiring (Attention)</option>
                 </select>
-              </div>
+              </div> */}
 
               <div className="pt-4 flex gap-3 justify-end border-t border-slate-100">
                 <button
@@ -576,6 +802,119 @@ export default function MembersView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Renewal Modal */}
+      {renewalMember && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-300 w-full max-w-md rounded-lg overflow-hidden shadow-xl animate-scale-in">
+            <div className="flex justify-between items-center px-6 py-4 bg-slate-50 border-b border-slate-200">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <RefreshCcw className="w-5 h-5 text-blue-600" />
+                <span>Renew Membership — {renewalMember.name}</span>
+              </h3>
+              <button onClick={() => setRenewalMember(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Plan Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Plan</label>
+                <select
+                  value={renewalPlan.name}
+                  onChange={(e) => {
+                    const pkg = PACKAGES.find((p) => p.name === e.target.value) || PACKAGES[0];
+                    setRenewalPlan(pkg);
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
+                >
+                  {PACKAGES.map((pkg) => (
+                    <option key={pkg.name} value={pkg.name}>
+                      {pkg.name} — ₹{pkg.price.toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Payment Type */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Type</label>
+                <select
+                  value={renewalPaymentType}
+                  onChange={(e) => setRenewalPaymentType(e.target.value as "QR" | "Cash")}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
+                >
+                  <option value="QR">QR (UPI)</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+
+              {/* QR Code Display */}
+              {renewalPaymentType === "QR" && (
+                <div className="flex flex-col items-center justify-center py-4 bg-slate-50 rounded-lg border border-slate-100 space-y-3">
+                  <div className="w-[120px] h-[120px] bg-white border p-2 rounded shadow-xs">
+                    <img
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9gx_lh02_1xwiNE_5lrzO3Mfbb7htKq9WuZFtuajFSqIzFRu2F0j4wRWAvAxhP2GDjhoyU5g3_7sQA1JlN8dbwILuL46In3zCGjkPS6BkSIrlxKP5kwoQH2tn3TEOI7ezzB8fR0LNUNeRAvnZm1eyDGq97k60bVRIACQZ23okzZ8ltqXjH9ism0lAUZucJ5Rf1-2jJ-b2TxBrt5B1qEOyuZUJSV-LVOnjOkfLlLfdTJBl3guDBDeVqpPcXXxXyH6VC0UTBP3UQcLB"
+                      alt="UPI QR Code"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs font-semibold text-slate-600">BHIM UPI • Paytm • PhonePe • GPay</p>
+                </div>
+              )}
+
+              {/* Cash Display */}
+              {renewalPaymentType === "Cash" && (
+                <div className="flex flex-col items-center justify-center py-6 bg-slate-50 rounded-lg border border-slate-100 space-y-2">
+                  <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <Banknote className="w-7 h-7 text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">Cash Payment</p>
+                  <p className="text-xs text-slate-500">Collect at the front desk.</p>
+                </div>
+              )}
+
+              {/* Price Breakdown */}
+              <div className="bg-slate-50 rounded-lg p-4 space-y-1.5 text-sm">
+                <div className="flex justify-between text-slate-600">
+                  <span>Plan Price</span>
+                  <span className="font-semibold">₹{renewalPlan.price.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>GST @ 18%</span>
+                  <span className="font-semibold">₹{Math.round(renewalPlan.price * 0.18).toLocaleString()}</span>
+                </div>
+                <div className="border-t border-slate-200 pt-1.5 flex justify-between text-slate-800 font-bold">
+                  <span>Total</span>
+                  <span className="text-blue-900">₹{(renewalPlan.price + Math.round(renewalPlan.price * 0.18)).toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setRenewalMember(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const totalWithTax = renewalPlan.price + Math.round(renewalPlan.price * 0.18);
+                    onConfirmRenewal(renewalMember.id, renewalPlan.name, totalWithTax, renewalPaymentType);
+                    setRenewalMember(null);
+                  }}
+                  className="px-5 py-2 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 transition flex items-center gap-2 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Renew</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

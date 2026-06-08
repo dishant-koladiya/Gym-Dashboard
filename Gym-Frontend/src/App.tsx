@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Screen, Member, Transaction, AdminAccount, GymInfo, SystemSettings, AppNotification } from "./types";
 import {
   INITIAL_MEMBERS,
@@ -83,6 +83,12 @@ export default function App() {
   // Toast dynamic array system
   const [toasts, setToasts] = useState<{ id: string; message: string; type: "success" | "info" | "error" }[]>([]);
 
+  // Track if localStorage had data on mount — skip API overwrite if so
+  const hasLocalData = useRef({
+    members: !!localStorage.getItem("tf_members"),
+    transactions: !!localStorage.getItem("tf_transactions"),
+  });
+
   // 2. Synchronization effect
   useEffect(() => {
     localStorage.setItem("tf_current_screen", currentScreen);
@@ -112,8 +118,9 @@ export default function App() {
     localStorage.setItem("tf_notifications", JSON.stringify(notifications));
   }, [notifications]);
 
-  // In App.tsx – after the existing `useEffect` or as a separate one
+  // Fetch active members from backend – skip if localStorage already has data
 useEffect(() => {
+  if (hasLocalData.current.members) return;
   async function fetchActiveMembers() {
     try {
       const res = await fetch(getApiUrl("/api/members/active"), {
@@ -121,20 +128,20 @@ useEffect(() => {
       });
       if (res.ok) {
         const raw = await res.json();
-        // The service already returns the Prisma payload shape, map it as before
         const mapped = Array.isArray(raw)
           ? raw.map((m) => mapBackendMemberToFrontend(m))
           : raw.data?.members?.map((m) => mapBackendMemberToFrontend(m)) ?? [];
 
-        setMembers(mapped);          // replace the whole list with actives
-        // If you want to keep *all* members elsewhere, store `mapped` in a separate state.
+        if (mapped.length > 0) {
+          setMembers(mapped);
+        }
       }
     } catch (e) {
       console.log("Failed to load active members", e);
     }
   }
   fetchActiveMembers();
-  }, [settings.backendUrl, settings.backendToken]); // same deps as the original fetch
+  }, [settings.backendUrl, settings.backendToken]);
 
   // Dynamic Base URL getters for user custom backend integration
   const getApiUrl = (path: string) => {
@@ -178,7 +185,7 @@ useEffect(() => {
       const daysDiff = timeDiff / (1000 * 3600 * 24);
       if (daysDiff < 0) {
         status = "Expired";
-      } else if (daysDiff <= 7) {
+      } else if (daysDiff <= 14) {
         status = "Expiring";
       }
     }
@@ -192,6 +199,9 @@ useEffect(() => {
       name: m.name,
       email: m.email,
       phone: m.phone || "",
+      age: m.age || 0,
+      address: m.address || "",
+      avatarUrl: m.avatarUrl || undefined,
       joinDate,
       expiryDate,
       plan: planName,
@@ -222,56 +232,63 @@ useEffect(() => {
     };
   };
 
-  // Load and synchronize data from external API routes in full-stack backend
+  // Load and synchronize data from external API routes – skip if localStorage had data
   useEffect(() => {
     async function fetchBackendDb() {
-      try {
-        const res = await fetch(getApiUrl("/api/members"), { headers: getHeaders() });
-        if (res.ok) {
-          const raw = await res.json();
-          let list = [];
-          if (Array.isArray(raw)) {
-            list = raw;
-          } else if (raw && raw.data && Array.isArray(raw.data.members)) {
-            list = raw.data.members;
-          } else if (raw && Array.isArray(raw.members)) {
-            list = raw.members;
+      if (!hasLocalData.current.members) {
+        try {
+          const res = await fetch(getApiUrl("/api/members"), { headers: getHeaders() });
+          if (res.ok) {
+            const raw = await res.json();
+            let list = [];
+            if (Array.isArray(raw)) {
+              list = raw;
+            } else if (raw && raw.data && Array.isArray(raw.data.members)) {
+              list = raw.data.members;
+            } else if (raw && Array.isArray(raw.members)) {
+              list = raw.members;
+            }
+            const mapped = list.map((m: any) => mapBackendMemberToFrontend(m));
+            if (mapped.length > 0) {
+              setMembers(mapped);
+            }
           }
-          const mapped = list.map((m: any) => mapBackendMemberToFrontend(m));
-          setMembers(mapped);
+        } catch (e) {
+          console.log("Offline or connection fallback for members active.");
         }
-      } catch (e) {
-        console.log("Offline or connection fallback for members active.");
       }
 
-      try {
-        const res = await fetch(getApiUrl("/api/payments"), { headers: getHeaders() });
-        if (res.ok) {
-          const raw = await res.json();
-          let list = [];
-          if (Array.isArray(raw)) {
-            list = raw;
-          } else if (raw && raw.data) {
-            if (Array.isArray(raw.data)) {
-              list = raw.data;
-            } else if (Array.isArray(raw.data.payments)) {
-              list = raw.data.payments;
+      if (!hasLocalData.current.transactions) {
+        try {
+          const res = await fetch(getApiUrl("/api/payments"), { headers: getHeaders() });
+          if (res.ok) {
+            const raw = await res.json();
+            let list = [];
+            if (Array.isArray(raw)) {
+              list = raw;
+            } else if (raw && raw.data) {
+              if (Array.isArray(raw.data)) {
+                list = raw.data;
+              } else if (Array.isArray(raw.data.payments)) {
+                list = raw.data.payments;
+              }
+            } else if (raw && Array.isArray(raw.payments)) {
+              list = raw.payments;
             }
-          } else if (raw && Array.isArray(raw.payments)) {
-            list = raw.payments;
+            const mapped = list.map((p: any) => mapBackendPaymentToFrontend(p));
+            if (mapped.length > 0) {
+              setTransactions(mapped);
+            }
+          } else {
+            const fallbackRes = await fetch("/api/transactions");
+            if (fallbackRes.ok) {
+              const data = await fallbackRes.json();
+              if (Array.isArray(data)) setTransactions(data);
+            }
           }
-          const mapped = list.map((p: any) => mapBackendPaymentToFrontend(p));
-          setTransactions(mapped);
-        } else {
-          // Falling back to local standard transactions API
-          const fallbackRes = await fetch("/api/transactions");
-          if (fallbackRes.ok) {
-            const data = await fallbackRes.json();
-            if (Array.isArray(data)) setTransactions(data);
-          }
+        } catch (e) {
+          console.log("Offline local storage fallback active.");
         }
-      } catch (e) {
-        console.log("Offline local storage fallback active.");
       }
 
       try {
@@ -523,7 +540,8 @@ useEffect(() => {
           name: newM.name,
           email: newM.email,
           phone: newM.phone,
-          age: 25,
+          age: newM.age,
+          address: newM.address,
         };
         const memberRes = await fetch(getApiUrl("/api/members"), {
           method: "POST",
@@ -613,6 +631,7 @@ useEffect(() => {
           name: updatedM.name,
           email: updatedM.email,
           phone: updatedM.phone,
+          address: updatedM.address,
           status: updatedM.status === "Expired" ? "INACTIVE" : "ACTIVE",
         }),
       });
@@ -683,7 +702,7 @@ useEffect(() => {
   };
 
   // Checkout: Confirm Renewal Invoice Completion
-  const handleConfirmRenewalSubmit = (memberId: string, planNameStr: string, paidAmount: number) => {
+  const handleConfirmRenewalSubmit = (memberId: string, planNameStr: string, paidAmount: number, paymentType: "QR" | "Cash" = "QR") => {
     // Process update dates
     const today = new Date();
     const joinDateStr = today.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
@@ -721,12 +740,14 @@ useEffect(() => {
     const mName = memberObj ? memberObj.name : "Vikram Singh";
 
     // Insert payment transaction log
+    const paymentMethod = paymentType === "QR" ? "UPI" : "Cash";
+    const methodDetail = paymentType === "QR" ? "BHIM UPI Terminal QR" : "Cash at Front Desk";
     const renewalTx: Transaction = {
       id: `TX-${Math.floor(10000 + Math.random() * 90000)}`,
       memberName: mName,
       planName: planNameStr,
-      paymentMethod: "UPI",
-      methodDetail: "BHIM UPI Terminal QR",
+      paymentMethod: paymentMethod as "UPI" | "Cash",
+      methodDetail: methodDetail,
       amount: paidAmount,
       date: joinDateStr,
       status: "Completed",
@@ -811,6 +832,7 @@ useEffect(() => {
             onEditMember={handleEditMember}
             onDeleteMember={handleDeleteMember}
             onRenewMember={handleRenewMemberRouting}
+            onConfirmRenewal={handleConfirmRenewalSubmit}
           />
         );
       case Screen.PAYMENTS_FINANCE:
@@ -913,6 +935,28 @@ useEffect(() => {
         <main className="flex-grow p-8 max-w-7xl mx-auto w-full min-h-[calc(100vh-64px)] overflow-y-auto">
           {renderScreenContent()}
         </main>
+
+        {/* Global Footer */}
+        <footer className="bg-slate-900 text-slate-400 px-8 py-6">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white tracking-tight">FitLife Pro</span>
+              <span className="hidden sm:inline">|</span>
+              <span className="hidden sm:inline">&copy; {new Date().getFullYear()} All rights reserved.</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span>Privacy Policy</span>
+              <span>Terms of Service</span>
+              <span>Contact Support</span>
+            </div>
+            <div className="text-slate-500">
+              <span>Version 2.1.0</span>
+            </div>
+          </div>
+          <div className="max-w-7xl mx-auto text-center mt-3 text-[10px] text-slate-600 sm:hidden">
+            &copy; {new Date().getFullYear()} FitLife Pro. All rights reserved.
+          </div>
+        </footer>
       </div>
 
       {/* Transient Toasts notifications renderer */}

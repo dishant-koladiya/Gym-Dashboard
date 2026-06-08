@@ -75,13 +75,13 @@ export default function Sidebar({ currentScreen, onNavigate, onOpenNewMemberModa
 
       {/* Add New Member Button */}
       <div className="px-4 mb-6">
-        <button
+        {/* <button
           onClick={onOpenNewMemberModal}
           className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition active:scale-[0.98] cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>New Member</span>
-        </button>
+        </button> */}
       </div>
 
       {/* Navigation list */}

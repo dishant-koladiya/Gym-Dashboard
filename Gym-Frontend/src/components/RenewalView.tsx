@@ -11,7 +11,7 @@ import { PACKAGES } from "../data";
 interface RenewalViewProps {
   members: Member[];
   preselectedMemberId: string | null;
-  onConfirmRenewal: (memberId: string, planName: string, amount: number) => void;
+  onConfirmRenewal: (memberId: string, planName: string, amount: number, paymentType: "QR" | "Cash") => void;
   onNavigate: (screen: Screen) => void;
 }
 
@@ -21,11 +21,12 @@ export default function RenewalView({
   onConfirmRenewal,
   onNavigate,
 }: RenewalViewProps) {
-  // Pre-load Vikram Singh or fallback to first member
+  // Pre-load 
   const defaultSelectedId = preselectedMemberId || "#TF-9042";
   const [selectedMemberId, setSelectedMemberId] = useState(defaultSelectedId);
   const [selectedPackage, setSelectedPackage] = useState(PACKAGES[1]); // Preselect 6 Months popular plan
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentType, setPaymentType] = useState<"QR" | "Cash">("QR");
 
   // Active selected member detail
   const selectedMember = useMemo(() => {
@@ -43,7 +44,7 @@ export default function RenewalView({
 
     // Simulate standard transaction processing latency (1.5 seconds)
     setTimeout(() => {
-      onConfirmRenewal(selectedMember.id, selectedPackage.name, totalAmount);
+      onConfirmRenewal(selectedMember.id, selectedPackage.name, totalAmount, paymentType);
       setIsProcessing(false);
       onNavigate(Screen.MEMBERS_DIRECTORY);
     }, 1500);
@@ -62,7 +63,7 @@ export default function RenewalView({
 
       {/* Main Container Header */}
       <div>
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Renew Membership</h2>
+        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">New Membership</h2>
         <p className="text-slate-500 font-medium">Configure plan properties and process UPI code scanning</p>
       </div>
 
@@ -189,31 +190,57 @@ export default function RenewalView({
         <div className="lg:col-span-5 bg-white border border-slate-200 p-6 rounded-lg space-y-6 shadow-sm">
           <h3 className="font-bold text-slate-805 border-b border-slate-100 pb-2 flex items-center gap-1.5">
             <QrCode className="w-5 h-5 text-blue-600 animate-pulse" />
-            <span>Scan to Pay (UPI Integration)</span>
+            <span>Payment</span>
           </h3>
 
-          {/* QR Code Container matching specification graphics */}
-          <div className="flex flex-col items-center justify-center py-4 bg-slate-50 rounded-lg border border-slate-100 space-y-3 relative select-none">
-            {isProcessing && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center space-y-2 z-20">
-                <Loader2 className="w-8 h-8 text-blue-650 animate-spin" />
-                <p className="text-xs font-bold text-blue-800">Processing Payment Securely...</p>
-              </div>
-            )}
-
-            <div className="w-[140px] h-[140px] bg-white border p-2 rounded shadow-xs relative object-cover">
-              {/* Hotlinked authentic QR Code image from wireframes */}
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9gx_lh02_1xwiNE_5lrzO3Mfbb7htKq9WuZFtuajFSqIzFRu2F0j4wRWAvAxhP2GDjhoyU5g3_7sQA1JlN8dbwILuL46In3zCGjkPS6BkSIrlxKP5kwoQH2tn3TEOI7ezzB8fR0LNUNeRAvnZm1eyDGq97k60bVRIACQZ23okzZ8ltqXjH9ism0lAUZucJ5Rf1-2jJ-b2TxBrt5B1qEOyuZUJSV-LVOnjOkfLlLfdTJBl3guDBDeVqpPcXXxXyH6VC0UTBP3UQcLB"
-                alt="Payment QR Code Scanner Vector"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="text-center">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Merchant: Titan Fitness</span>
-              <p className="text-xs font-semibold text-slate-600 block mt-0.5">BHIM UPI • Paytm • PhonePe • GPay</p>
-            </div>
+          {/* Payment Type Selector */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Type</label>
+            <select
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value as "QR" | "Cash")}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
+            >
+              <option value="QR">QR (UPI)</option>
+              <option value="Cash">Cash</option>
+            </select>
           </div>
+
+          {/* QR Code Section (visible only when QR is selected) */}
+          {paymentType === "QR" && (
+            <div className="flex flex-col items-center justify-center py-4 bg-slate-50 rounded-lg border border-slate-100 space-y-3 relative select-none">
+              {isProcessing && (
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center space-y-2 z-20">
+                  <Loader2 className="w-8 h-8 text-blue-650 animate-spin" />
+                  <p className="text-xs font-bold text-blue-800">Processing Payment Securely...</p>
+                </div>
+              )}
+
+              <div className="w-[140px] h-[140px] bg-white border p-2 rounded shadow-xs relative object-cover">
+                {/* Hotlinked authentic QR Code image from wireframes */}
+                <img
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9gx_lh02_1xwiNE_5lrzO3Mfbb7htKq9WuZFtuajFSqIzFRu2F0j4wRWAvAxhP2GDjhoyU5g3_7sQA1JlN8dbwILuL46In3zCGjkPS6BkSIrlxKP5kwoQH2tn3TEOI7ezzB8fR0LNUNeRAvnZm1eyDGq97k60bVRIACQZ23okzZ8ltqXjH9ism0lAUZucJ5Rf1-2jJ-b2TxBrt5B1qEOyuZUJSV-LVOnjOkfLlLfdTJBl3guDBDeVqpPcXXxXyH6VC0UTBP3UQcLB"
+                  alt="Payment QR Code Scanner Vector"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="text-center">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Merchant: Titan Fitness</span>
+                <p className="text-xs font-semibold text-slate-600 block mt-0.5">BHIM UPI • Paytm • PhonePe • GPay</p>
+              </div>
+            </div>
+          )}
+
+          {/* Cash section (visible when Cash is selected) */}
+          {paymentType === "Cash" && (
+            <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-lg border border-slate-100 space-y-2 select-none">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+                <span className="text-3xl">💵</span>
+              </div>
+              <p className="text-sm font-bold text-slate-700">Cash Payment</p>
+              <p className="text-xs text-slate-500 text-center">Collect ₹{totalAmount.toLocaleString()} at the front desk.</p>
+            </div>
+          )}
 
           {/* Pricing Ledger Breakdown */}
           <div className="space-y-3 py-1 text-sm">

@@ -48,7 +48,7 @@ export default function Header({
         <h1 className="text-lg font-bold text-blue-900 whitespace-nowrap">Gym-Dashboard</h1>
       </div>
 
-      {/* Search Input Box */}
+      {/* Search Input Box
       <div className="flex-1 max-w-md">
         <div className="relative group">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition" />
@@ -60,7 +60,7 @@ export default function Header({
             placeholder="Search members, transactions, plans..."
           />
         </div>
-      </div>
+      </div> */}
 
       {/* Global Status/Actions */}
       <div className="flex items-center gap-6 ml-4">
@@ -141,7 +141,7 @@ export default function Header({
                   <div>
                     <h4 className="text-sm font-bold text-slate-800 mb-1">Need Help?</h4>
                     <p className="text-sm text-slate-600">
-                      Contact <span className="font-bold text-blue-600">koladiyadishant11@gmail.com</span> for support
+                      Contact <span className="font-bold text-blue-600">7984491528</span> for support
                     </p>
                   </div>
                 </div>

@@ -16,10 +16,12 @@ export enum Screen {
 }
 
 export interface Member {
-  id: string; // e.g. #TF-9042
+  id: string;
   name: string;
   email: string;
   phone: string;
+  age: number;
+  address: string;
   joinDate: string;
   expiryDate: string;
   plan: string;

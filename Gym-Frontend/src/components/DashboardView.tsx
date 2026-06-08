@@ -19,11 +19,23 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
   const activePlansCount = members.filter((m) => m.status === "Active").length;
   const expiredCount = members.filter((m) => m.status === "Expired").length;
 
+  // Members expiring within the next 30 days
+  const today = new Date();
+  const expiringSoonMembers = members.filter((m) => {
+    if (!m.expiryDate || m.status === "Expired") return false;
+    const parts = m.expiryDate.match(/(\w+)\s+(\d+),\s+(\d+)/);
+    if (!parts) return false;
+    const monthMap: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+    const expiry = new Date(parseInt(parts[3]), monthMap[parts[1]], parseInt(parts[2]));
+    const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays > 0 && diffDays <= 14;
+  });
+  const expiringSoonCount = expiringSoonMembers.length;
+
   // Let's compute MTD revenue from completed transactions
   const completedTx = transactions.filter((t) => t.status === "Completed");
   const totalRevenueMtd = completedTx.reduce((sum, tx) => sum + tx.amount, 0);
 
-  // Growth percentages placeholders to look authentic to wireframes
   const stats = [
     {
       title: "Total Members",
@@ -50,14 +62,73 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
       icon: DollarSign,
     },
     {
-      title: "Expired Memberships",
-      value: expiredCount.toString(),
-      change: "Requires action",
+      title: expiredCount > 0 ? "Expired Memberships" : "Expiring Memberships",
+      value: expiredCount > 0 ? expiredCount.toString() : expiringSoonCount.toString(),
+      change: expiredCount > 0
+        ? `${expiringSoonCount} expiring soon`
+        : `${expiringSoonCount} in last month`,
       isPositive: false,
-      color: "bg-rose-50 text-rose-600",
+      color: expiredCount > 0 ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600",
       icon: Ban,
     },
   ];
+
+  // Compute plan distribution from active members
+  const activeMembers = members.filter((m) => m.status === "Active");
+  const planSegments = [
+    {
+      label: "Premium Elite",
+      color: "#2563eb",
+      members: activeMembers.filter(
+        (m) =>
+          m.plan.toLowerCase().includes("premium") ||
+          m.plan.toLowerCase().includes("annual") ||
+          m.plan.toLowerCase().includes("year") ||
+          m.price >= 8000
+      ),
+    },
+    {
+      label: "Standard Plus",
+      color: "#ea580c",
+      members: activeMembers.filter(
+        (m) =>
+          m.plan.toLowerCase().includes("standard") ||
+          m.plan.toLowerCase().includes("6 month") ||
+          (m.price >= 4500 && m.price < 8000)
+      ),
+    },
+    {
+      label: "Basic Tier",
+      color: "#64748b",
+      members: activeMembers.filter(
+        (m) =>
+          !m.plan.toLowerCase().includes("premium") &&
+          !m.plan.toLowerCase().includes("annual") &&
+          !m.plan.toLowerCase().includes("year") &&
+          !m.plan.toLowerCase().includes("standard") &&
+          !m.plan.toLowerCase().includes("6 month") &&
+          m.price < 4500
+      ),
+    },
+  ];
+  const totalPlanned = planSegments.reduce((sum, s) => sum + s.members.length, 0) || 1;
+  const segments = planSegments.map((s) => ({
+    ...s,
+    count: s.members.length,
+    percent: Math.round((s.members.length / totalPlanned) * 100),
+  }));
+  const CIRCUMFERENCE = 314;
+  let cumulativeAngle = 0;
+  const svgSegments = segments.map((s) => {
+    const angle = (s.percent / 100) * 360;
+    const seg = {
+      ...s,
+      dashoffset: CIRCUMFERENCE - (CIRCUMFERENCE * s.percent) / 100,
+      rotation: cumulativeAngle,
+    };
+    cumulativeAngle += angle;
+    return seg;
+  });
 
   // Dynamic monthly calculation
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
@@ -69,6 +140,12 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
   });
 
   const maxAmount = Math.max(...dynamicMonthlySummaries.map((d) => d.amount), 0);
+
+  // Compute dynamic Y-axis grid lines based on actual max revenue
+  const gridSteps = 4;
+  const gridMax = Math.ceil(maxAmount / 5000) * 5000 || 50000;
+  const gridStep = Math.round(gridMax / gridSteps / 1000) * 1000 || 10000;
+  const gridLines = [1, 2, 3, 4].map((i) => gridStep * i).filter((v) => v <= gridMax);
 
   const chartData = dynamicMonthlySummaries.map((data) => {
     const isCurrentMonth = data.month === new Date().toLocaleDateString("en-US", { month: "short" });
@@ -137,14 +214,14 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
 
           {/* Simple Highly Polished Grid and Bar Chart Representation */}
           <div className="flex-1 min-h-[220px] flex items-end gap-4 relative pt-10 px-2 select-none">
-            {/* Background Grid Lines */}
-            <div className="absolute inset-0 flex flex-col justify-between text-[11px] font-mono text-slate-400 pointer-events-none mt-1">
-              <div className="border-t border-dashed border-slate-100 w-full pt-1">₹60,000</div>
-              <div className="border-t border-dashed border-slate-100 w-full pt-1">₹45,000</div>
-              <div className="border-t border-dashed border-slate-100 w-full pt-1">₹30,000</div>
-              <div className="border-t border-dashed border-slate-100 w-full pt-1">₹15,000</div>
-              <div className="w-full h-0 border-t border-slate-300"></div>
-            </div>
+            {/* Background Grid Lines — dynamic Y-axis labels from actual revenue */}
+            {/* <div className="absolute inset-0 flex flex-col justify-between text-[11px] font-mono text-slate-400 pointer-events-none mt-1">
+              {[...gridLines].reverse().map((val, i) => (
+                <div key={i} className="border-t border-dashed border-slate-200 w-full pt-1">
+                  ₹{val.toLocaleString()}
+                </div>
+              ))}`
+            </div> */}
 
             {/* Simulated interactive bars */}
             {chartData.map((data, idx) => (
@@ -180,47 +257,24 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
             <p className="text-xs text-slate-500 font-medium mb-4">Breakdown by active membership tier</p>
           </div>
 
-          {/* Decorative Donut chart simulation using purely SVG */}
+          {/* Dynamic Donut chart from real member data */}
           <div className="flex-1 flex items-center justify-center relative my-4">
             <svg className="w-36 h-36 transform -rotate-90">
-              {/* Premium Elite - 58% (Circumference 314) */}
-              <circle
-                cx="72"
-                cy="72"
-                r="50"
-                stroke="#2563eb"
-                strokeWidth="14"
-                fill="transparent"
-                strokeDasharray="314"
-                strokeDashoffset={314 - (314 * 58) / 100}
-                className="transition-all duration-1000"
-              />
-              {/* Standard Plus - 32% (starts at strokeOffset of Premium Elite) */}
-              <circle
-                cx="72"
-                cy="72"
-                r="50"
-                stroke="#ea580c"
-                strokeWidth="14"
-                fill="transparent"
-                strokeDasharray="314"
-                strokeDashoffset={314 - (314 * 32) / 100}
-                transform="rotate(208.8 72 72)" /* 58% of 360 deg = 208.8 deg */
-                className="transition-all duration-1000"
-              />
-              {/* Basic Tier - 10% */}
-              <circle
-                cx="72"
-                cy="72"
-                r="50"
-                stroke="#64748b"
-                strokeWidth="14"
-                fill="transparent"
-                strokeDasharray="314"
-                strokeDashoffset={314 - (314 * 10) / 100}
-                transform="rotate(324 72 72)" /* 58+32 = 90% of 360 deg = 324 deg */
-                className="transition-all duration-1000"
-              />
+              {svgSegments.map((s, i) => (
+                <circle
+                  key={i}
+                  cx="72"
+                  cy="72"
+                  r="50"
+                  stroke={s.color}
+                  strokeWidth="14"
+                  fill="transparent"
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeDashoffset={s.dashoffset}
+                  transform={`rotate(${s.rotation} 72 72)`}
+                  className="transition-all duration-1000"
+                />
+              ))}
             </svg>
 
             {/* Interactive Centered Metric Text */}
@@ -232,32 +286,84 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
 
           {/* Color Indicators Legend */}
           <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-            <div className="flex justify-between items-center text-xs">
-              <div className="flex items-center gap-2 text-slate-600">
-                <span className="w-3 h-3 bg-blue-600 rounded-full"></span>
-                <span>Premium Elite</span>
+            {segments.map((s, i) => (
+              <div key={i} className="flex justify-between items-center text-xs">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }}></span>
+                  <span>{s.label}</span>
+                </div>
+                <span className="font-bold text-slate-800">{s.percent}% ({s.count})</span>
               </div>
-              <span className="font-bold text-slate-800">58%</span>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs">
-              <div className="flex items-center gap-2 text-slate-600">
-                <span className="w-3 h-3 bg-orange-600 rounded-full"></span>
-                <span>Standard Plus</span>
-              </div>
-              <span className="font-bold text-slate-800">32%</span>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs">
-              <div className="flex items-center gap-2 text-slate-600">
-                <span className="w-3 h-3 bg-slate-500 rounded-full"></span>
-                <span>Basic Tier</span>
-              </div>
-              <span className="font-bold text-slate-800">10%</span>
-            </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {/* Expiring Soon Section */}
+      {expiringSoonMembers.length > 0 && (
+        <div className="bg-white border border-amber-200 rounded-lg overflow-hidden">
+          <div className="p-6 border-b border-amber-100 bg-amber-50/40">
+            <h4 className="font-semibold text-lg text-slate-900 flex items-center gap-2">
+              <Ban className="w-5 h-5 text-amber-600" />
+              <span>Expiring Soon — {expiringSoonCount} member{expiringSoonCount > 1 ? "s" : ""} within 30 days</span>
+            </h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-sans text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase border-b border-slate-100">
+                  <th className="px-6 py-3.5">Member</th>
+                  <th className="px-6 py-3.5">Plan</th>
+                  <th className="px-6 py-3.5">Expiry Date</th>
+                  <th className="px-6 py-3.5">Days Left</th>
+                  <th className="px-6 py-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {expiringSoonMembers.map((m) => {
+                  const parts = m.expiryDate.match(/(\w+)\s+(\d+),\s+(\d+)/);
+                  const monthMap: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+                  const expiry = parts ? new Date(parseInt(parts[3]), monthMap[parts[1]], parseInt(parts[2])) : new Date();
+                  const daysLeft = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <tr key={m.id} className="hover:bg-amber-50/30 transition duration-150">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center font-bold text-amber-700 text-xs shadow-sm">
+                            {m.name.split(" ").map((n) => n[0]).join("")}
+                          </div>
+                          <p className="font-bold text-slate-800">{m.name}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{m.plan}</td>
+                      <td className="px-6 py-4 text-slate-500 text-xs">{m.expiryDate}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                          daysLeft <= 7
+                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                            : daysLeft <= 14
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : "bg-blue-50 text-blue-700 border border-blue-200"
+                        }`}>
+                          {daysLeft} day{daysLeft > 1 ? "s" : ""}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => onRenewMember(m.id)}
+                          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition font-semibold cursor-pointer"
+                        >
+                          Renew
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Recent Membership Sales Dashboard Table */}
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
