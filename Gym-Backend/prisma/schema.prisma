@@ -23,6 +23,8 @@ model Member {
   email         String               @unique
   phone         String?
   age           Int?
+  address       String?
+  avatarUrl     String?
   status        String               @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
   createdAt     DateTime             @default(now())
   subscriptions MemberSubscription[]

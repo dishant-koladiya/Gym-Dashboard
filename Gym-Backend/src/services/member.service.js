@@ -5,7 +5,7 @@ const { AppError } = require("../middleware/error.middleware");
  * Register a new member.
  */
 const createMember = async (memberData) => {
-  const { name, email, phone, age } = memberData;
+  const { name, email, phone, age, address, avatarUrl } = memberData;
 
   const existing = await prisma.member.findUnique({ where: { email } });
   if (existing) {
@@ -18,6 +18,8 @@ const createMember = async (memberData) => {
       email,
       phone,
       age: age ? parseInt(age) : null,
+      address,
+      avatarUrl,
     },
   });
 };
@@ -103,7 +105,7 @@ const getMemberById = async (id) => {
  * Update member details.
  */
 const updateMember = async (id, updateData) => {
-  const { name, email, phone, age, status } = updateData;
+  const { name, email, phone, age, address, avatarUrl, status } = updateData;
 
   const member = await prisma.member.findUnique({ where: { id: parseInt(id) } });
   if (!member) {
@@ -124,6 +126,8 @@ const updateMember = async (id, updateData) => {
       email,
       phone,
       age: age ? parseInt(age) : undefined,
+      address,
+      avatarUrl,
       status,
     },
   });
