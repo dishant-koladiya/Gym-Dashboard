@@ -31,6 +31,7 @@ const register = async (email, password, name) => {
       id: true,
       email: true,
       name: true,
+      avatarUrl: true,
       createdAt: true,
     },
   });
@@ -57,11 +58,11 @@ const login = async (email, password) => {
     throw new AppError("Invalid email or password.", 401);
   }
 
-  // Generate JWT token (expires in 24 hours)
+  // Generate JWT token (expires in 30 days)
   const token = jwt.sign(
     { id: admin.id, email: admin.email },
     process.env.JWT_SECRET,
-    { expiresIn: "24h" }
+    { expiresIn: "30d" }
   );
 
   return {
@@ -69,6 +70,7 @@ const login = async (email, password) => {
       id: admin.id,
       email: admin.email,
       name: admin.name,
+      avatarUrl: admin.avatarUrl,
       createdAt: admin.createdAt,
     },
     token,

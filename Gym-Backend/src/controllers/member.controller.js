@@ -96,6 +96,18 @@ const checkOut = async (req, res, next) => {
 };
 
 /**
+ * Controller to delete all members.
+ */
+const deleteAllMembers = async (req, res, next) => {
+  try {
+    const result = await memberService.deleteAllMembers();
+    return sendSuccess(res, `All ${result.count} members deleted permanently.`, result, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Controller to permanently delete a member.
  */
 const deleteMember = async (req, res, next) => {
@@ -114,6 +126,7 @@ module.exports = {
   updateMember,
   deactivateMember,
   deleteMember,
+  deleteAllMembers,
   getActiveMembers,
   checkIn,
   checkOut,

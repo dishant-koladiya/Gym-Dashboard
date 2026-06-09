@@ -9,6 +9,7 @@ router.use(protect);
 // CRUD Endpoints
 router.post("/", memberController.createMember);
 router.get("/", memberController.getMembers);
+router.delete("/", memberController.deleteAllMembers);
 router.get("/:id", memberController.getMemberById);
 router.put("/:id", memberController.updateMember);
 router.delete("/:id", memberController.deleteMember);

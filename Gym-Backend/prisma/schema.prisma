@@ -12,6 +12,7 @@ model Admin {
   email                String    @unique
   password             String
   name                 String?
+  avatarUrl            String?
   resetPasswordToken   String?   @unique
   resetPasswordExpires DateTime?
   createdAt            DateTime  @default(now())
@@ -69,4 +70,21 @@ model Attendance {
   checkIn   DateTime  @default(now())
   checkOut  DateTime?
   member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model Gym {
+  id      Int     @id @default(autoincrement())
+  name    String
+  address String?
+  phone   String?
+  website String?
+}
+
+model SystemSetting {
+  id            Int     @id @default(autoincrement())
+  theme         String  @default("Light")
+  emailUpdates  Boolean @default(true)
+  desktopAlerts Boolean @default(false)
+  backendUrl    String?
+  backendToken  String?
 }

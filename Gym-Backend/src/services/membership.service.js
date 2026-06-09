@@ -99,7 +99,7 @@ const deletePlan = async (id) => {
  * Subscribe a member to a plan package.
  */
 const subscribeMember = async (subscribeData) => {
-  const { memberId, planId } = subscribeData;
+  const { memberId, planId, recordPayment = true } = subscribeData;
   const mId = parseInt(memberId);
   const pId = parseInt(planId);
 
@@ -148,14 +148,16 @@ const subscribeMember = async (subscribeData) => {
       },
     });
 
-    // Create the invoice payment record (paid immediately)
-    await tx.payment.create({
-      data: {
-        subscriptionId: subscription.id,
-        amount: plan.price,
-        status: "PAID",
-      },
-    });
+    // Create the invoice payment record (paid immediately) — skip if recordPayment is false
+    if (recordPayment) {
+      await tx.payment.create({
+        data: {
+          subscriptionId: subscription.id,
+          amount: plan.price,
+          status: "PAID",
+        },
+      });
+    }
 
     return subscription;
   });

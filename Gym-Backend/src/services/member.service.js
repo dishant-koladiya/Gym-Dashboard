@@ -149,6 +149,13 @@ const deactivateMember = async (id) => {
 };
 
 /**
+ * Delete all members (cascades to subscriptions, payments, attendance).
+ */
+const deleteAllMembers = async () => {
+  return await prisma.member.deleteMany();
+};
+
+/**
  * Permanently delete a member and all cascaded relations.
  */
 const deleteMember = async (id) => {
@@ -249,6 +256,7 @@ module.exports = {
   updateMember,
   deactivateMember,
   deleteMember,
+  deleteAllMembers,
   getActiveMembers,
   checkIn,
   checkOut,
