@@ -10,10 +10,9 @@ import {
   Users,
   CreditCard,
   Award,
-  AlertCircle,
   Settings,
-  Plus,
-  LogOut,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -21,9 +20,17 @@ interface SidebarProps {
   onNavigate: (screen: Screen) => void;
   onOpenNewMemberModal: () => void;
   gymName: string;
+  collapsed: boolean;
+  onToggle: () => void;
 }
 
-export default function Sidebar({ currentScreen, onNavigate, onOpenNewMemberModal, gymName }: SidebarProps) {
+export default function Sidebar({
+  currentScreen,
+  onNavigate,
+  gymName,
+  collapsed,
+  onToggle,
+}: SidebarProps) {
   const menuItems = [
     {
       id: Screen.DASHBOARD,
@@ -46,12 +53,6 @@ export default function Sidebar({ currentScreen, onNavigate, onOpenNewMemberModa
       icon: Award,
     },
     {
-      id: "complaints",
-      label: "Complaints",
-      icon: AlertCircle,
-      disabled: true,
-    },
-    {
       id: Screen.SETTINGS,
       label: "Settings",
       icon: Settings,
@@ -59,71 +60,67 @@ export default function Sidebar({ currentScreen, onNavigate, onOpenNewMemberModa
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[280px] flex flex-col py-6 bg-slate-50 border-r border-slate-200 z-40">
+    <aside
+      className={`fixed left-0 top-0 h-full flex flex-col py-6 bg-slate-50 border-r border-slate-200 z-40 transition-all duration-300 ${
+        collapsed ? "w-[80px]" : "w-[280px]"
+      }`}
+    >
       {/* Brand Identity / Logo Header */}
-      <div className="px-6 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 flex items-center justify-center rounded shadow-sm text-white">
+      <div className={`mb-8 ${collapsed ? "px-0 flex justify-center" : "px-6"}`}>
+        <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
+          <div className="w-10 h-10 bg-blue-600 flex items-center justify-center rounded shadow-sm text-white flex-shrink-0">
             <Dumbbell className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="font-semibold text-xl tracking-tight text-blue-900">{gymName || "Titan Fitness"}</h1>
-            <p className="text-xs text-slate-500 font-medium tracking-wider uppercase">Admin Console</p>
-          </div>
+          {!collapsed && (
+            <div className="overflow-hidden whitespace-nowrap">
+              <h1 className="font-semibold text-xl tracking-tight text-blue-900 truncate">{gymName || "Titan Fitness"}</h1>
+              <p className="text-xs text-slate-500 font-medium tracking-wider uppercase">Admin Console</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Add New Member Button */}
-      <div className="px-4 mb-6">
-        {/* <button
-          onClick={onOpenNewMemberModal}
-          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition active:scale-[0.98] cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Member</span>
-        </button> */}
-      </div>
-
       {/* Navigation list */}
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 space-y-1 px-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentScreen === item.id;
-          const isDisabled = item.disabled;
 
           return (
             <button
               key={item.label}
-              disabled={isDisabled}
               onClick={() => onNavigate(item.id as Screen)}
-              className={`w-full flex items-center gap-3 px-4 py-3 transition-all text-left font-medium ${
-                isDisabled
-                  ? "opacity-50 cursor-not-allowed text-slate-400"
-                  : isActive
-                  ? "bg-blue-100/60 border-l-4 border-blue-600 text-blue-700 font-bold"
+              className={`w-full flex items-center gap-3 px-3 py-3 transition-all text-left font-medium rounded-lg ${
+                isActive
+                  ? "bg-blue-100/60 text-blue-700 font-bold"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
-              }`}
+              } ${collapsed ? "justify-center px-0" : ""}`}
+              title={collapsed ? item.label : undefined}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
-              <span className="text-sm">{item.label}</span>
-              {isDisabled && (
-                <span className="ml-auto text-[10px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">
-                  MOCK
-                </span>
-              )}
+              <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
+              {!collapsed && <span className="text-sm truncate">{item.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      {/* Footer / Logout */}
-      <div className="px-4 mt-auto pt-4 border-t border-slate-200">
+      {/* Collapse toggle button */}
+      <div className="px-2 mt-auto pt-4 border-t border-slate-200">
         <button
-          onClick={() => onNavigate(Screen.LOGIN)}
-          className="w-full flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-red-50 hover:text-red-600 transition rounded-lg text-left font-medium cursor-pointer"
+          onClick={onToggle}
+          className={`w-full flex items-center gap-3 px-3 py-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition rounded-lg cursor-pointer ${
+            collapsed ? "justify-center px-0" : ""
+          }`}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <LogOut className="w-5 h-5 text-slate-400 group-hover:text-red-500" />
-          <span className="text-sm">Logout</span>
+          {collapsed ? (
+            <ChevronRight className="w-5 h-5 flex-shrink-0" />
+          ) : (
+            <>
+              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm"></span>
+            </>
+          )}
         </button>
       </div>
     </aside>

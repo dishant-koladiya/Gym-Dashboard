@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   emailUpdates: true,
   desktopAlerts: false,
   backendUrl: "http://localhost:5000",
-  backendToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImlhdCI6MTc4MDU2NTUyMCwiZXhwIjoxNzgwNjUxOTIwfQ.Z36aaFXkNydvCZUzy_OhCfUwZ0aWce_NnR2bd7KPs_I",
+  backendToken: "",
 };
 
 // Standard membership packages for Vikram renewal / checkout flow

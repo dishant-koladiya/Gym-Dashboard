@@ -24,7 +24,8 @@ import {
   ShieldCheck,
   Banknote,
   Phone,
-  MapPin
+  MapPin,
+  Camera,
 } from "lucide-react";
 
 interface MembersViewProps {
@@ -62,6 +63,15 @@ export default function MembersView({
   const [newAddress, setNewAddress] = useState("");
   const [newPlan, setNewPlan] = useState("Monthly Basic");
   const [newStatus, setNewStatus] = useState<"Active" | "Expired" | "Expiring">("Active");
+  const [newAvatarUrl, setNewAvatarUrl] = useState("");
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setNewAvatarUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   // Auto-compute member status from expiryDate (14-day threshold)
   const monthMap: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
@@ -82,10 +92,23 @@ export default function MembersView({
   const [activeInfoMember, setActiveInfoMember] = useState<string | null>(null);
   const infoCardRef = useRef<HTMLDivElement>(null);
 
+  const [activeImageMember, setActiveImageMember] = useState<string | null>(null);
+  const imageCardRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (infoCardRef.current && !infoCardRef.current.contains(e.target as Node)) {
         setActiveInfoMember(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (imageCardRef.current && !imageCardRef.current.contains(e.target as Node)) {
+        setActiveImageMember(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -190,6 +213,7 @@ export default function MembersView({
     setNewAddress("");
     setNewPlan("Monthly Basic");
     setNewStatus("Active");
+    setNewAvatarUrl("");
     setErrors({});
     setTouched({});
     setIsAddModalOpen(true);
@@ -207,6 +231,12 @@ export default function MembersView({
     const ageErr = validateField("age", newAge);
     const addressErr = validateField("address", newAddress);
     if (nameErr || emailErr || phoneErr || ageErr || addressErr) return;
+
+    const duplicateEmail = members.some((m) => m.email.toLowerCase() === newEmail.trim().toLowerCase());
+    if (duplicateEmail) {
+      setErrors((prev) => ({ ...prev, email: "A member with this email already exists" }));
+      return;
+    }
 
     const today = new Date();
     const joinDateStr = today.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
@@ -234,6 +264,7 @@ export default function MembersView({
       status: newStatus,
       lastActive: joinDateStr,
       homeBranch: "Downtown Central",
+      avatarUrl: newAvatarUrl || undefined,
     });
 
     setIsAddModalOpen(false);
@@ -247,6 +278,7 @@ export default function MembersView({
     setNewAge(member.age.toString());
     setNewAddress(member.address);
     setNewPlan(member.plan);
+    setNewAvatarUrl(member.avatarUrl || "");
     setNewStatus(member.status);
     setErrors({});
     setTouched({});
@@ -275,6 +307,7 @@ export default function MembersView({
       address: newAddress,
       plan: newPlan,
       status: newStatus,
+      avatarUrl: newAvatarUrl || undefined,
     });
 
     setIsEditModalOpen(false);
@@ -347,9 +380,9 @@ export default function MembersView({
             onChange={(e) => setPlanFilter(e.target.value)}
           >
             <option value="All">All Plans</option>
-            <option value="Premium">Premium Plans</option>
-            <option value="Standard">Standard Plans</option>
-            <option value="Basic">Basic Plans</option>
+            {PACKAGES.map((pkg) => (
+              <option key={pkg.name} value={pkg.name}>{pkg.name}</option>
+            ))}
           </select>
 
           <select
@@ -407,9 +440,9 @@ export default function MembersView({
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <div
-                            onClick={() => setActiveInfoMember(activeInfoMember === member.id ? null : member.id)}
-                            className="h-10 w-10 rounded-full border border-slate-200 overflow-hidden bg-slate-50 shadow-xs flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
-                            title="View contact info"
+                            onClick={() => member.avatarUrl && setActiveImageMember(activeImageMember === member.id ? null : member.id)}
+                            className={`h-10 w-10 rounded-full border border-slate-200 overflow-hidden bg-slate-50 shadow-xs flex-shrink-0 ${member.avatarUrl ? 'cursor-pointer hover:ring-2 hover:ring-blue-400' : ''} transition`}
+                            title={member.avatarUrl ? "View photo" : ""}
                           >
                             {member.avatarUrl ? (
                               <img
@@ -424,9 +457,39 @@ export default function MembersView({
                               </div>
                             )}
                           </div>
+                          {activeImageMember === member.id && member.avatarUrl && (
+                            <div
+                              ref={imageCardRef}
+                              className="absolute left-0 top-full mt-2 z-40 animate-scale-in"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-100">
+                                <img
+                                  referrerPolicy="no-referrer"
+                                  src={member.avatarUrl}
+                                  alt={member.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <p
+                            onClick={() => setActiveInfoMember(activeInfoMember === member.id ? null : member.id)}
+                            className="font-bold text-slate-800 cursor-pointer hover:text-blue-600 transition"
+                          >
+                            {member.name}
+                          </p>
+                          <p className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 leading-none mt-0.5">
+                            <span className="font-semibold text-slate-600">{member.id}</span>
+                            <span>•</span>
+                            <span>{member.email}</span>
+                          </p>
                           {activeInfoMember === member.id && (
                             <div
                               ref={infoCardRef}
+                              onClick={(e) => e.stopPropagation()}
                               className="absolute left-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-lg shadow-xl z-40 p-4 animate-scale-in"
                             >
                               <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
@@ -454,14 +517,6 @@ export default function MembersView({
                               </div>
                             </div>
                           )}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800">{member.name}</p>
-                          <p className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 leading-none mt-0.5">
-                            <span className="font-semibold text-slate-600">{member.id}</span>
-                            <span>•</span>
-                            <span>{member.email}</span>
-                          </p>
                         </div>
                       </div>
                     </td>
@@ -652,6 +707,29 @@ export default function MembersView({
                 {touched.address && errors.address && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.address}</p>}
               </div>
 
+              {/* Photo Upload */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Profile Photo</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {newAvatarUrl ? (
+                      <img src={newAvatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-slate-400" />
+                    )}
+                  </div>
+                  <label className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200 transition cursor-pointer">
+                    Choose File
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAvatarUpload} />
+                  </label>
+                  {newAvatarUrl && (
+                    <button type="button" onClick={() => setNewAvatarUrl("")} className="text-xs text-red-500 hover:underline cursor-pointer">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="pt-4 flex gap-3 justify-end border-t border-slate-100">
                 <button
                   type="button"
@@ -758,6 +836,29 @@ export default function MembersView({
                   onBlur={() => handleBlur("address")}
                 />
                 {touched.address && errors.address && <p className="text-[11px] text-red-500 font-medium mt-0.5">{errors.address}</p>}
+              </div>
+
+              {/* Photo Upload */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Profile Photo</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {newAvatarUrl ? (
+                      <img src={newAvatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-slate-400" />
+                    )}
+                  </div>
+                  <label className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200 transition cursor-pointer">
+                    Change Photo
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAvatarUpload} />
+                  </label>
+                  {newAvatarUrl && (
+                    <button type="button" onClick={() => setNewAvatarUrl("")} className="text-xs text-red-500 hover:underline cursor-pointer">
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1.5">

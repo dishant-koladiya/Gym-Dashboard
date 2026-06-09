@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useState } from "react";
 import { Member, Transaction, Screen } from "../types";
 import { Users, Award, DollarSign, Ban, TrendingUp, Calendar, ChevronRight } from "lucide-react";
 
@@ -14,6 +15,10 @@ interface DashboardProps {
 }
 
 export default function DashboardView({ members, transactions, onNavigate, onRenewMember }: DashboardProps) {
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
+
   // Compute numbers dynamically based on actual state arrays
   const totalMembersCount = members.length;
   const activePlansCount = members.filter((m) => m.status === "Active").length;
@@ -130,11 +135,11 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
     return seg;
   });
 
-  // Dynamic monthly calculation
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+  // Dynamic monthly calculation filtered by selected year
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const dynamicMonthlySummaries = months.map((m) => {
     const totalAmount = transactions
-      .filter((tx) => tx.status === "Completed" && tx.date && tx.date.startsWith(m))
+      .filter((tx) => tx.status === "Completed" && tx.date && tx.date.startsWith(m) && tx.date.includes(String(selectedYear)))
       .reduce((sum, tx) => sum + tx.amount, 0);
     return { month: m, amount: totalAmount };
   });
@@ -148,7 +153,7 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
   const gridLines = [1, 2, 3, 4].map((i) => gridStep * i).filter((v) => v <= gridMax);
 
   const chartData = dynamicMonthlySummaries.map((data) => {
-    const isCurrentMonth = data.month === new Date().toLocaleDateString("en-US", { month: "short" });
+    const isCurrentMonth = data.month === new Date().toLocaleDateString("en-US", { month: "short" }) && selectedYear === currentYear;
     const percentHeight = maxAmount > 0 ? Math.max(12, Math.round((data.amount / maxAmount) * 90)) : 10;
     return {
       month: data.month,
@@ -201,19 +206,27 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Trend Block */}
         <div className="lg:col-span-2 bg-white border border-slate-200 p-6 rounded-lg flex flex-col">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
               <h4 className="font-semibold text-lg text-slate-900">Monthly Revenue Trend</h4>
-              <p className="text-xs text-slate-500 font-medium">Last 6 months performance tracker</p>
+              <p className="text-xs text-slate-500 font-medium">12 months performance tracker</p>
             </div>
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs font-medium text-slate-600">
+            <div className="self-start sm:self-auto flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs font-medium text-slate-600 whitespace-nowrap">
               <Calendar className="w-3.5 h-3.5" />
-              <span>Year 2026</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="bg-transparent outline-none font-medium text-slate-600 cursor-pointer"
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
           </div>
 
           {/* Simple Highly Polished Grid and Bar Chart Representation */}
-          <div className="flex-1 min-h-[220px] flex items-end gap-4 relative pt-10 px-2 select-none">
+          <div className="flex-1 min-h-[220px] flex items-end gap-3 sm:gap-4 relative pt-10 px-2 select-none overflow-x-auto">
             {/* Background Grid Lines — dynamic Y-axis labels from actual revenue */}
             {/* <div className="absolute inset-0 flex flex-col justify-between text-[11px] font-mono text-slate-400 pointer-events-none mt-1">
               {[...gridLines].reverse().map((val, i) => (
@@ -225,7 +238,7 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
 
             {/* Simulated interactive bars */}
             {chartData.map((data, idx) => (
-              <div key={idx} className="flex-grow flex flex-col items-center group relative h-[180px] justify-end z-10">
+              <div key={idx} className="flex-grow min-w-[30px] flex flex-col items-center group relative h-[180px] justify-end z-10">
                 {/* Floating tooltip */}
                 <div className="absolute -top-7 scale-0 group-hover:scale-100 transition-transform duration-120 bg-slate-800 text-white text-[11px] font-bold px-2 py-1 rounded shadow-sm z-30">
                   {data.amount}

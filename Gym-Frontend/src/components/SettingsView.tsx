@@ -4,17 +4,18 @@
  */
 
 import React, { useState } from "react";
-import { AdminAccount, GymInfo, SystemSettings } from "../types";
-import { Save, RefreshCw, Settings2, Key, Home, BellRing } from "lucide-react";
+import { AdminAccount, GymInfo, SystemSettings, Screen } from "../types";
+import { Save, Settings2, Key, Home, LogOut, Camera } from "lucide-react";
 
 interface SettingsViewProps {
   admin: AdminAccount;
   gym: GymInfo;
   settings: SystemSettings;
   onSave: (updated: { admin: AdminAccount; gym: GymInfo; settings: SystemSettings }) => void;
+  onNavigate: (screen: Screen) => void;
 }
 
-export default function SettingsView({ admin, gym, settings, onSave }: SettingsViewProps) {
+export default function SettingsView({ admin, gym, settings, onSave, onNavigate }: SettingsViewProps) {
   // Account settings state
   const [fullName, setFullName] = useState(admin.fullName);
   const [username, setUsername] = useState(admin.username);
@@ -31,6 +32,17 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
   const [emailUpdates, setEmailUpdates] = useState(settings.emailUpdates);
   const [desktopAlerts, setDesktopAlerts] = useState(settings.desktopAlerts);
 
+  // Admin avatar state
+  const [adminAvatarUrl, setAdminAvatarUrl] = useState(admin.avatarUrl);
+
+  const handleAdminAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setAdminAvatarUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   // Password panel state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -43,6 +55,7 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
         fullName,
         username,
         email,
+        avatarUrl: adminAvatarUrl,
       },
       gym: {
         name: gymName,
@@ -67,6 +80,7 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
       setFullName(admin.fullName);
       setUsername(admin.username);
       setEmail(admin.email);
+      setAdminAvatarUrl(admin.avatarUrl);
       setGymName(gym.name);
       setGymAddress(gym.address);
       setGymPhone(gym.phone);
@@ -120,19 +134,15 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
               <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-dashed border-slate-300 group-hover:border-blue-600 transition flex items-center justify-center bg-slate-50">
                 <img
                   referrerPolicy="no-referrer"
-                  src={admin.avatarUrl}
+                  src={adminAvatarUrl}
                   alt="Admin Avatar settings"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => alert("Photo upload trigger starts...\n(Select replacement file in local workspace directory)")}
-                className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-full text-xs font-semibold hover:bg-blue-700 shadow-sm cursor-pointer"
-                title="Change Photo"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
+              <label className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1.5 rounded-full text-xs font-semibold hover:bg-blue-700 shadow-sm cursor-pointer" title="Change Photo">
+                <Camera className="w-3.5 h-3.5" />
+                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAdminAvatarUpload} />
+              </label>
             </div>
             
             <div>
@@ -295,6 +305,19 @@ export default function SettingsView({ admin, gym, settings, onSave }: SettingsV
         </div> */}
 
       </div>
+
+      {/* Logout */}
+      <div className="pt-6 border-t border-slate-200">
+        <button
+          type="button"
+          onClick={() => onNavigate(Screen.LOGIN)}
+          className="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-sm font-bold transition cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Logout</span>
+        </button>
+      </div>
+
     </form>
   );
 }

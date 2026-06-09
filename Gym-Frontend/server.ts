@@ -59,6 +59,12 @@ async function startServer() {
     res.json({ success: true, member: updated });
   });
 
+  app.delete("/api/members", (req, res) => {
+    membersDb = [];
+    transactionsDb = [];
+    res.json({ success: true, count: 0 });
+  });
+
   app.delete("/api/members/:id", (req, res) => {
     const { id } = req.params;
     const targetMember = membersDb.find((m) => m.id === id);

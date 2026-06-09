@@ -39,7 +39,7 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
   });
 
   // Pagination
-  const ITEMS_PER_PAGE = 5;
+  const ITEMS_PER_PAGE = 7;
   const [paymentPage, setPaymentPage] = useState(1);
   const totalPaymentPages = Math.ceil(sortedTx.length / ITEMS_PER_PAGE);
   const paginatedTx = sortedTx.slice((paymentPage - 1) * ITEMS_PER_PAGE, paymentPage * ITEMS_PER_PAGE);
@@ -83,7 +83,7 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
     .reduce((acc, current) => acc + current.amount, 0);
 
   return (
-    <div className="animate-fade-in space-y-8">
+    <div className="animate-fade-in space-y-3">
       {/* View Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -97,23 +97,7 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
       </div>
 
       {/* Finance Bento Cards Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        {/* Total Revenue MTD */}
-        <div className="md:col-span-12 bg-white p-6 border border-slate-200 rounded-lg flex flex-col justify-between h-44 hover:border-blue-500 transition">
-          <div className="flex justify-between items-start">
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded">
-              <DollarSign className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              +12.4%
-            </span>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Total Revenue (MTD)</p>
-            <h3 className="text-2xl font-bold text-slate-800">₹{totalRevenue.toLocaleString()}</h3>
-          </div>
-        </div>
-      </div>
+      
 
       {/* Recent Transactions List Section */}
       <section className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
@@ -136,9 +120,9 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
               onChange={(e) => setMethodFilter(e.target.value)}
             >
               <option>All Methods</option>
-              <option>Credit Card</option>
+              {/* <option>Credit Card</option> */}
               <option>Cash</option>
-              <option>Bank Transfer</option>
+              {/* <option>Bank Transfer</option> */}
               <option>UPI</option>
             </select>
 

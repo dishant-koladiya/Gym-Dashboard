@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { Screen, Member, Transaction, AdminAccount, GymInfo, SystemSettings, AppNotification } from "./types";
+import { Screen, Member, Transaction, AdminAccount, GymInfo, SystemSettings } from "./types";
 import {
   INITIAL_MEMBERS,
   INITIAL_TRANSACTIONS,
@@ -74,20 +74,30 @@ export default function App() {
   // Global search input in top bar
   const [globalSearch, setGlobalSearch] = useState("");
 
-  // Notification bell state
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem("tf_notifications");
-    return saved ? JSON.parse(saved) : [];
-  });
-
   // Toast dynamic array system
   const [toasts, setToasts] = useState<{ id: string; message: string; type: "success" | "info" | "error" }[]>([]);
+
+  // Sidebar collapsed state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("tf_sidebar_collapsed") === "true";
+  });
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("tf_sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   // Track if localStorage had data on mount — skip API overwrite if so
   const hasLocalData = useRef({
     members: !!localStorage.getItem("tf_members"),
     transactions: !!localStorage.getItem("tf_transactions"),
   });
+
+  // Force re-fetch from API when incremented (used after reset)
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // 2. Synchronization effect
   useEffect(() => {
@@ -114,13 +124,9 @@ export default function App() {
     localStorage.setItem("tf_settings", JSON.stringify(settings));
   }, [settings]);
 
-  useEffect(() => {
-    localStorage.setItem("tf_notifications", JSON.stringify(notifications));
-  }, [notifications]);
-
   // Fetch active members from backend – skip if localStorage already has data
 useEffect(() => {
-  if (hasLocalData.current.members) return;
+  if (hasLocalData.current.members && refreshKey === 0) return;
   async function fetchActiveMembers() {
     try {
       const res = await fetch(getApiUrl("/api/members/active"), {
@@ -141,7 +147,7 @@ useEffect(() => {
     }
   }
   fetchActiveMembers();
-  }, [settings.backendUrl, settings.backendToken]);
+  }, [settings.backendUrl, settings.backendToken, refreshKey]);
 
   // Dynamic Base URL getters for user custom backend integration
   const getApiUrl = (path: string) => {
@@ -235,7 +241,7 @@ useEffect(() => {
   // Load and synchronize data from external API routes – skip if localStorage had data
   useEffect(() => {
     async function fetchBackendDb() {
-      if (!hasLocalData.current.members) {
+      if (!hasLocalData.current.members || refreshKey > 0) {
         try {
           const res = await fetch(getApiUrl("/api/members"), { headers: getHeaders() });
           if (res.ok) {
@@ -258,7 +264,7 @@ useEffect(() => {
         }
       }
 
-      if (!hasLocalData.current.transactions) {
+      if (!hasLocalData.current.transactions || refreshKey > 0) {
         try {
           const res = await fetch(getApiUrl("/api/payments"), { headers: getHeaders() });
           if (res.ok) {
@@ -322,7 +328,7 @@ useEffect(() => {
       }
     }
     fetchBackendDb();
-  }, [settings.backendUrl, settings.backendToken]);
+  }, [settings.backendUrl, settings.backendToken, refreshKey]);
 
   // Toast Trigger Helper
   const showToast = (message: string, type: "success" | "info" | "error" = "success") => {
@@ -516,18 +522,6 @@ useEffect(() => {
     setMembers((prev) => [newM, ...prev]);
     showToast(`Member profile for ${newM.name} generated successfully.`, "success");
 
-    // Push notification for bell icon
-    setNotifications((prev) => [
-      {
-        id: `n-${Date.now()}`,
-        message: `New member created: ${newM.name}`,
-        memberName: newM.name,
-        timestamp: new Date().toLocaleString(),
-        read: false,
-      },
-      ...prev,
-    ]);
-
     // Navigate directly to Subscription/Renewal page with the new member preselected
     setPreselectedMemberId(generatedId);
     setCurrentScreen(Screen.MEMBERSHIP_RENEWAL);
@@ -589,15 +583,25 @@ useEffect(() => {
               }
             }
 
-            // Step 3: Trigger subscribeMember mapping Subscription & Payment records on their database
+            // Step 3: Assign plan to member (no payment recorded — prevents inflating revenue)
             await fetch(getApiUrl("/api/memberships/subscribe"), {
               method: "POST",
               headers: getHeaders(),
               body: JSON.stringify({
                 memberId: createdId,
                 planId: planId,
+                recordPayment: false,
               }),
             });
+          }
+        } else {
+          // Backend rejected the request — likely expired token or server error
+          const errBody = await memberRes.json().catch(() => ({}));
+          const reason = errBody.message || errBody.error || `Server error (${memberRes.status})`;
+          if (memberRes.status === 401) {
+            showToast("Session expired. Please log out and log back in.", "error");
+          } else {
+            showToast(`Backend sync failed: ${reason}`, "error");
           }
         }
       } else {
@@ -610,6 +614,7 @@ useEffect(() => {
       }
     } catch (err) {
       console.log("Custom backend API sync failed.", err);
+      showToast("Could not reach backend server. Check your connection.", "error");
     }
   };
 
@@ -764,19 +769,19 @@ useEffect(() => {
     showToast("Global system configurations saved successfully!", "success");
 
     try {
-      await fetch("/api/admin", {
+      await fetch(getApiUrl("/api/admin"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify(updated.admin),
       });
-      await fetch("/api/gym", {
+      await fetch(getApiUrl("/api/gym"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify(updated.gym),
       });
-      await fetch("/api/settings", {
+      await fetch(getApiUrl("/api/settings"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify(updated.settings),
       });
     } catch (err) {
@@ -784,21 +789,57 @@ useEffect(() => {
     }
   };
 
+  // Reset all data — clears DB, localStorage, and resets state to factory defaults
+  const handleResetAllData = async () => {
+    const isCustomBackend = settings.backendUrl && settings.backendUrl.trim();
+
+    // If pointing to a live backend (Prisma/PostgreSQL), also hit the bulk delete endpoint
+    if (isCustomBackend) {
+      try {
+        const response = await fetch(getApiUrl("/api/members"), {
+          method: "DELETE",
+          headers: getHeaders(),
+        });
+        if (response.ok) {
+          showToast("All members deleted from database.", "success");
+        } else {
+          const errBody = await response.json().catch(() => ({}));
+          const reason = errBody.message || errBody.error || `HTTP ${response.status}`;
+          showToast(`Database clear failed: ${reason}. Local data still wiped.`, "error");
+        }
+      } catch (err) {
+        showToast("Could not reach backend. Local data still wiped.", "info");
+      }
+    } else {
+      // Dev/mock server fallback
+      try {
+        await fetch("/api/members", { method: "DELETE" });
+      } catch {}
+    }
+
+    // Always clear local state regardless of backend success
+    localStorage.removeItem("tf_members");
+    localStorage.removeItem("tf_transactions");
+    localStorage.removeItem("tf_current_screen");
+    localStorage.removeItem("tf_sidebar_collapsed");
+    localStorage.removeItem("tf_settings");
+    localStorage.removeItem("tf_admin");
+    localStorage.removeItem("tf_gym");
+    setMembers([]);
+    setTransactions([]);
+    setSettings(DEFAULT_SETTINGS);
+    setAdmin(DEFAULT_ADMIN);
+    setGym(DEFAULT_GYM);
+    setCurrentScreen(Screen.DASHBOARD);
+    setRefreshKey((k) => k + 1);
+    showToast("All data cleared. Refreshing from database...", "success");
+  };
+
   // Utility to auto toggle adding a member from sidebar
   const handleOpenNewMemberOnDirectory = () => {
     setCurrentScreen(Screen.MEMBERS_DIRECTORY);
     // Dynamic message instruction
     showToast("Tap 'Add New Member' on the top right to register.", "info");
-  };
-
-  const handleMarkNotificationRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
-
-  const handleClearNotifications = () => {
-    setNotifications([]);
   };
 
   const handleNavigationTransition = (target: Screen) => {
@@ -853,6 +894,7 @@ useEffect(() => {
             gym={gym}
             settings={settings}
             onSave={handleSettingsSave}
+            onNavigate={handleNavigationTransition}
           />
         );
       default:
@@ -910,10 +952,12 @@ useEffect(() => {
         onNavigate={handleNavigationTransition}
         onOpenNewMemberModal={handleOpenNewMemberOnDirectory}
         gymName={gym.name}
+        collapsed={sidebarCollapsed}
+        onToggle={handleToggleSidebar}
       />
 
       {/* Main content body panel */}
-      <div className="flex-1 flex flex-col min-w-0 pl-[280px]">
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? "pl-[80px]" : "pl-[280px]"}`}>
         
         {/* Persistent App bar */}
         <Header
@@ -926,9 +970,7 @@ useEffect(() => {
             }
           }}
           onNavigate={handleNavigationTransition}
-          notifications={notifications}
-          onMarkNotificationRead={handleMarkNotificationRead}
-          onClearNotifications={handleClearNotifications}
+          currentScreen={currentScreen}
         />
 
         {/* Primary responsive view stage */}
@@ -937,7 +979,7 @@ useEffect(() => {
         </main>
 
         {/* Global Footer */}
-        <footer className="bg-slate-900 text-slate-400 px-8 py-6">
+        <footer className="bg-slate-900 text-slate-400 px-8 py-2">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
             <div className="flex items-center gap-2">
               <span className="font-bold text-white tracking-tight">FitLife Pro</span>
