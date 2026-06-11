@@ -5,16 +5,15 @@
 
 import { useState } from "react";
 import { Member, Transaction, Screen } from "../types";
-import { Users, Award, DollarSign, Ban, TrendingUp, Calendar, ChevronRight } from "lucide-react";
+import { Users, Award, DollarSign, Ban, Calendar, ChevronRight } from "lucide-react";
 
 interface DashboardProps {
   members: Member[];
   transactions: Transaction[];
   onNavigate: (screen: Screen) => void;
-  onRenewMember: (memberId: string) => void;
 }
 
-export default function DashboardView({ members, transactions, onNavigate, onRenewMember }: DashboardProps) {
+export default function DashboardView({ members, transactions, onNavigate }: DashboardProps) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
@@ -178,25 +177,18 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
           return (
             <div
               key={i}
-              className="bg-white border border-slate-200 p-6 rounded-lg transition-all hover:border-blue-500 hover:shadow-sm"
+              className="bg-white border border-slate-200 p-5 rounded-lg transition-all hover:border-blue-500 hover:shadow-sm"
               id={`dashboard-stat-${i}`}
             >
-              <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3 mb-2">
                 <div className={`p-2.5 rounded-lg ${stat.color}`}>
                   <Icon className="w-5 h-5" />
                 </div>
-                <span
-                  className={`text-xs font-bold px-2 py-1 rounded-full ${
-                    stat.isPositive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                  }`}
-                >
-                  {stat.change}
-                </span>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  {stat.title}
+                </p>
               </div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
-                {stat.title}
-              </p>
-              <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{stat.value}</h3>
+              <h3 className="text-2xl font-bold text-slate-800 tracking-tight text-center">{stat.value}</h3>
             </div>
           );
         })}
@@ -329,7 +321,6 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
                   <th className="px-6 py-3.5">Plan</th>
                   <th className="px-6 py-3.5">Expiry Date</th>
                   <th className="px-6 py-3.5">Days Left</th>
-                  <th className="px-6 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -360,14 +351,6 @@ export default function DashboardView({ members, transactions, onNavigate, onRen
                         }`}>
                           {daysLeft} day{daysLeft > 1 ? "s" : ""}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => onRenewMember(m.id)}
-                          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition font-semibold cursor-pointer"
-                        >
-                          Renew
-                        </button>
                       </td>
                     </tr>
                   );

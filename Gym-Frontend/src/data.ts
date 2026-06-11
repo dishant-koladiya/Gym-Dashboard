@@ -39,17 +39,20 @@ export const PACKAGES = [
     term: "SHORT TERM",
     price: 1200,
     features: ["All Equipment Access", "Locker Room Access", "Basic Fitness Assessment"],
+    active: true,
   },
   {
     name: "6 Months",
     term: "POPULAR",
     price: 4500,
     features: ["All Equipment Access", "Locker Room + Steam", "2 Guest Passes / Month", "Group Classes Included"],
+    active: true,
   },
   {
     name: "1 Year",
     term: "BEST VALUE",
     price: 8000,
     features: ["All Equipment Access", "Locker Room + Steam + Sauna", "5 Guest Passes / Month", "Group Classes Included", "Personal Training (2 Sessions)", "Free Gym Kit Bundle"],
+    active: true,
   },
 ];

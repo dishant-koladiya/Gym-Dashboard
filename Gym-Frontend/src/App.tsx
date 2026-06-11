@@ -3,14 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from "react";
-import { Screen, Member, Transaction, AdminAccount, GymInfo, SystemSettings } from "./types";
+import { useState, useEffect } from "react";
+import {
+  Screen,
+  Member,
+  Transaction,
+  AdminAccount,
+  GymInfo,
+  SystemSettings,
+  SubscriptionPlan,
+} from "./types";
 import {
   INITIAL_MEMBERS,
   INITIAL_TRANSACTIONS,
   DEFAULT_ADMIN,
   DEFAULT_GYM,
   DEFAULT_SETTINGS,
+  PACKAGES,
 } from "./data";
 
 // Views
@@ -19,14 +28,15 @@ import Header from "./components/Header";
 import DashboardView from "./components/DashboardView";
 import MembersView from "./components/MembersView";
 import PaymentsView from "./components/PaymentsView";
-import RenewalView from "./components/RenewalView";
+import SubscriptionPlansView from "./components/SubscriptionPlansView";
+import AddMemberWizard from "./components/AddMemberWizard";
 import SettingsView from "./components/SettingsView";
 import LoginView from "./components/LoginView";
 import RegisterView from "./components/RegisterView";
 import ForgotPasswordView from "./components/ForgotPasswordView";
 import RegSuccessView from "./components/RegSuccessView";
 
-import { CheckCircle2, UserPlus, Trash, Sparkles } from "lucide-react";
+import { CheckCircle2, Trash, Sparkles } from "lucide-react";
 
 export default function App() {
   // 1. Core States loaded from localStorage (persistence) or fallback to data.ts
@@ -65,14 +75,16 @@ export default function App() {
 
   const [settings, setSettings] = useState<SystemSettings>(() => {
     const saved = localStorage.getItem("tf_settings");
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
 
-  // Auxiliary state for member selection in renew panel
-  const [preselectedMemberId, setPreselectedMemberId] = useState<string | null>(null);
+  // Subscription plans state (editable)
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(() => {
+    const saved = localStorage.getItem("tf_subscription_plans");
+    return saved ? JSON.parse(saved) : [...PACKAGES];
+  });
 
-  // Global search input in top bar
-  const [globalSearch, setGlobalSearch] = useState("");
+
 
   // Toast dynamic array system
   const [toasts, setToasts] = useState<{ id: string; message: string; type: "success" | "info" | "error" }[]>([]);
@@ -89,12 +101,6 @@ export default function App() {
       return next;
     });
   };
-
-  // Track if localStorage had data on mount — skip API overwrite if so
-  const hasLocalData = useRef({
-    members: !!localStorage.getItem("tf_members"),
-    transactions: !!localStorage.getItem("tf_transactions"),
-  });
 
   // Force re-fetch from API when incremented (used after reset)
   const [refreshKey, setRefreshKey] = useState(0);
@@ -124,20 +130,31 @@ export default function App() {
     localStorage.setItem("tf_settings", JSON.stringify(settings));
   }, [settings]);
 
-  // Fetch active members from backend – skip if localStorage already has data
+  useEffect(() => {
+    localStorage.setItem("tf_subscription_plans", JSON.stringify(subscriptionPlans));
+  }, [subscriptionPlans]);
+
+  // Fetch active members from backend
 useEffect(() => {
-  if (hasLocalData.current.members && refreshKey === 0) return;
   async function fetchActiveMembers() {
+    if (!isLoggedIn) return;
+    const token = settings.backendToken?.trim();
+    if (!token) return;
     try {
       const res = await fetch(getApiUrl("/api/members/active"), {
         headers: getHeaders(),
       });
       if (res.ok) {
         const raw = await res.json();
-        const mapped = Array.isArray(raw)
-          ? raw.map((m) => mapBackendMemberToFrontend(m))
-          : raw.data?.members?.map((m) => mapBackendMemberToFrontend(m)) ?? [];
-
+        let list = [];
+        if (Array.isArray(raw)) {
+          list = raw;
+        } else if (raw.data && Array.isArray(raw.data)) {
+          list = raw.data;
+        } else if (raw.data && Array.isArray(raw.data.members)) {
+          list = raw.data.members;
+        }
+        const mapped = list.map((m: any) => mapBackendMemberToFrontend(m));
         if (mapped.length > 0) {
           setMembers(mapped);
         }
@@ -238,63 +255,62 @@ useEffect(() => {
     };
   };
 
-  // Load and synchronize data from external API routes – skip if localStorage had data
+  // Load and synchronize data from external API routes
   useEffect(() => {
     async function fetchBackendDb() {
-      if (!hasLocalData.current.members || refreshKey > 0) {
-        try {
-          const res = await fetch(getApiUrl("/api/members"), { headers: getHeaders() });
-          if (res.ok) {
-            const raw = await res.json();
-            let list = [];
-            if (Array.isArray(raw)) {
-              list = raw;
-            } else if (raw && raw.data && Array.isArray(raw.data.members)) {
-              list = raw.data.members;
-            } else if (raw && Array.isArray(raw.members)) {
-              list = raw.members;
-            }
-            const mapped = list.map((m: any) => mapBackendMemberToFrontend(m));
-            if (mapped.length > 0) {
-              setMembers(mapped);
-            }
+      if (!isLoggedIn) return;
+      const token = settings.backendToken?.trim();
+      if (!token) return;
+      try {
+        const res = await fetch(getApiUrl("/api/members"), { headers: getHeaders() });
+        if (res.ok) {
+          const raw = await res.json();
+          let list = [];
+          if (Array.isArray(raw)) {
+            list = raw;
+          } else if (raw && raw.data && Array.isArray(raw.data.members)) {
+            list = raw.data.members;
+          } else if (raw && Array.isArray(raw.members)) {
+            list = raw.members;
           }
-        } catch (e) {
-          console.log("Offline or connection fallback for members active.");
+          const mapped = list.map((m: any) => mapBackendMemberToFrontend(m));
+          if (mapped.length > 0) {
+            setMembers(mapped);
+          }
         }
+      } catch (e) {
+        console.log("Offline or connection fallback for members.");
       }
 
-      if (!hasLocalData.current.transactions || refreshKey > 0) {
-        try {
-          const res = await fetch(getApiUrl("/api/payments"), { headers: getHeaders() });
-          if (res.ok) {
-            const raw = await res.json();
-            let list = [];
-            if (Array.isArray(raw)) {
-              list = raw;
-            } else if (raw && raw.data) {
-              if (Array.isArray(raw.data)) {
-                list = raw.data;
-              } else if (Array.isArray(raw.data.payments)) {
-                list = raw.data.payments;
-              }
-            } else if (raw && Array.isArray(raw.payments)) {
-              list = raw.payments;
+      try {
+        const res = await fetch(getApiUrl("/api/payments"), { headers: getHeaders() });
+        if (res.ok) {
+          const raw = await res.json();
+          let list = [];
+          if (Array.isArray(raw)) {
+            list = raw;
+          } else if (raw && raw.data) {
+            if (Array.isArray(raw.data)) {
+              list = raw.data;
+            } else if (Array.isArray(raw.data.payments)) {
+              list = raw.data.payments;
             }
-            const mapped = list.map((p: any) => mapBackendPaymentToFrontend(p));
-            if (mapped.length > 0) {
-              setTransactions(mapped);
-            }
-          } else {
-            const fallbackRes = await fetch("/api/transactions");
-            if (fallbackRes.ok) {
-              const data = await fallbackRes.json();
-              if (Array.isArray(data)) setTransactions(data);
-            }
+          } else if (raw && Array.isArray(raw.payments)) {
+            list = raw.payments;
           }
-        } catch (e) {
-          console.log("Offline local storage fallback active.");
+          const mapped = list.map((p: any) => mapBackendPaymentToFrontend(p));
+          if (mapped.length > 0) {
+            setTransactions(mapped);
+          }
+        } else {
+          const fallbackRes = await fetch("/api/transactions");
+          if (fallbackRes.ok) {
+            const data = await fallbackRes.json();
+            if (Array.isArray(data)) setTransactions(data);
+          }
         }
+      } catch (e) {
+        console.log("Offline local storage fallback active.");
       }
 
       try {
@@ -421,6 +437,7 @@ useEffect(() => {
     aPassword?: string
   ): Promise<string | undefined> => {
     const isCustomBackend = settings.backendUrl && settings.backendUrl.trim();
+    let registeredToken = "";
 
     if (isCustomBackend) {
       try {
@@ -454,11 +471,11 @@ useEffect(() => {
         const data = await response.json();
         const payload = data.data || data;
 
-        // Apply fallback authorization header if returned on creation
         if (payload.token) {
+          registeredToken = payload.token;
           setSettings((prev) => ({
             ...prev,
-            backendToken: payload.token,
+            backendToken: registeredToken,
           }));
         }
       } catch (err: any) {
@@ -487,8 +504,15 @@ useEffect(() => {
       avatarUrl: DEFAULT_ADMIN.avatarUrl,
     });
 
-    showToast("Admin account configured successfully!", "success");
-    setCurrentScreen(Screen.REG_SUCCESS);
+    if (registeredToken) {
+      localStorage.setItem("tf_is_logged_in", "true");
+      setIsLoggedIn(true);
+      setCurrentScreen(Screen.DASHBOARD);
+      showToast("Account created! Your live database is ready.", "success");
+    } else {
+      showToast("Admin account configured successfully!", "success");
+      setCurrentScreen(Screen.REG_SUCCESS);
+    }
     return undefined;
   };
 
@@ -511,111 +535,14 @@ useEffect(() => {
 
   // Directory: Add pristine new member
   const handleAddMember = async (mRaw: Omit<Member, "id">) => {
-    const isCustomBackend = settings.backendUrl && settings.backendUrl.trim();
-    let generatedId = `#TF-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newM: Member = {
-      ...mRaw,
-      id: generatedId,
-    };
+    const generatedId = `#TF-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newM: Member = { ...mRaw, id: generatedId };
 
-    // Pre-insert log dynamically
     setMembers((prev) => [newM, ...prev]);
     showToast(`Member profile for ${newM.name} generated successfully.`, "success");
+    setCurrentScreen(Screen.MEMBERS_DIRECTORY);
 
-    // Navigate directly to Subscription/Renewal page with the new member preselected
-    setPreselectedMemberId(generatedId);
-    setCurrentScreen(Screen.MEMBERSHIP_RENEWAL);
-
-    // Active synchronization with backend server
-    try {
-      if (isCustomBackend) {
-        // Step 1: Create Member
-        const memberPayload = {
-          name: newM.name,
-          email: newM.email,
-          phone: newM.phone,
-          age: newM.age,
-          address: newM.address,
-        };
-        const memberRes = await fetch(getApiUrl("/api/members"), {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify(memberPayload),
-        });
-
-        if (memberRes.ok) {
-          const memberData = await memberRes.json();
-          const createdMember = memberData.data || memberData.member || memberData;
-          const createdId = createdMember.id;
-
-          if (createdId) {
-            // Sync local state ID with the database ID so edit and delete actions work instantly
-            setMembers((prev) =>
-              prev.map((item) => (item.id === generatedId ? { ...item, id: String(createdId) } : item))
-            );
-
-            // Step 2: Fetch and find or create correct subscription plan ID
-            let planId = 1;
-            const plansRes = await fetch(getApiUrl("/api/memberships/plans"), { headers: getHeaders() });
-            if (plansRes.ok) {
-              const rawPlans = await plansRes.json();
-              const plansList = Array.isArray(rawPlans) ? rawPlans : (rawPlans.data || rawPlans.plans || []);
-              const matchingPlan = plansList.find((p: any) => p.name.toLowerCase().includes(newM.plan.toLowerCase()) || p.price === newM.price);
-              
-              if (matchingPlan) {
-                planId = matchingPlan.id;
-              } else {
-                // Let's create the plan dynamically on user's backend, preventing any subscription failures!
-                const createPlanRes = await fetch(getApiUrl("/api/memberships/plans"), {
-                  method: "POST",
-                  headers: getHeaders(),
-                  body: JSON.stringify({
-                    name: newM.plan,
-                    price: newM.price,
-                    durationMonths: newM.plan.includes("6 Months") ? 6 : (newM.plan.includes("Year") || newM.plan.includes("Annual") ? 12 : 1),
-                    description: `${newM.plan} premium access package`,
-                  }),
-                });
-                if (createPlanRes.ok) {
-                  const newPlanData = await createPlanRes.json();
-                  planId = (newPlanData.data || newPlanData.plan || newPlanData).id || 1;
-                }
-              }
-            }
-
-            // Step 3: Assign plan to member (no payment recorded — prevents inflating revenue)
-            await fetch(getApiUrl("/api/memberships/subscribe"), {
-              method: "POST",
-              headers: getHeaders(),
-              body: JSON.stringify({
-                memberId: createdId,
-                planId: planId,
-                recordPayment: false,
-              }),
-            });
-          }
-        } else {
-          // Backend rejected the request — likely expired token or server error
-          const errBody = await memberRes.json().catch(() => ({}));
-          const reason = errBody.message || errBody.error || `Server error (${memberRes.status})`;
-          if (memberRes.status === 401) {
-            showToast("Session expired. Please log out and log back in.", "error");
-          } else {
-            showToast(`Backend sync failed: ${reason}`, "error");
-          }
-        }
-      } else {
-        // Fallback or demo local storage server mode
-        await fetch("/api/members", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newM),
-        });
-      }
-    } catch (err) {
-      console.log("Custom backend API sync failed.", err);
-      showToast("Could not reach backend server. Check your connection.", "error");
-    }
+    syncMemberToBackend(generatedId, newM, newM.plan, newM.price);
   };
 
   // Directory: Modify existing member properties
@@ -698,12 +625,6 @@ useEffect(() => {
       console.log("API delete sync fallback active.", err);
       showToast(`Failed to connect to your live backend database.`, "error");
     }
-  };
-
-  // Routing directly to payment activation renewal
-  const handleRenewMemberRouting = (memberId: string) => {
-    setPreselectedMemberId(memberId);
-    setCurrentScreen(Screen.MEMBERSHIP_RENEWAL);
   };
 
   // Checkout: Confirm Renewal Invoice Completion
@@ -790,56 +711,130 @@ useEffect(() => {
   };
 
   // Reset all data — clears DB, localStorage, and resets state to factory defaults
-  const handleResetAllData = async () => {
-    const isCustomBackend = settings.backendUrl && settings.backendUrl.trim();
-
-    // If pointing to a live backend (Prisma/PostgreSQL), also hit the bulk delete endpoint
-    if (isCustomBackend) {
-      try {
-        const response = await fetch(getApiUrl("/api/members"), {
-          method: "DELETE",
-          headers: getHeaders(),
-        });
-        if (response.ok) {
-          showToast("All members deleted from database.", "success");
-        } else {
-          const errBody = await response.json().catch(() => ({}));
-          const reason = errBody.message || errBody.error || `HTTP ${response.status}`;
-          showToast(`Database clear failed: ${reason}. Local data still wiped.`, "error");
-        }
-      } catch (err) {
-        showToast("Could not reach backend. Local data still wiped.", "info");
-      }
-    } else {
-      // Dev/mock server fallback
-      try {
-        await fetch("/api/members", { method: "DELETE" });
-      } catch {}
-    }
-
-    // Always clear local state regardless of backend success
-    localStorage.removeItem("tf_members");
-    localStorage.removeItem("tf_transactions");
-    localStorage.removeItem("tf_current_screen");
-    localStorage.removeItem("tf_sidebar_collapsed");
-    localStorage.removeItem("tf_settings");
-    localStorage.removeItem("tf_admin");
-    localStorage.removeItem("tf_gym");
-    setMembers([]);
-    setTransactions([]);
-    setSettings(DEFAULT_SETTINGS);
-    setAdmin(DEFAULT_ADMIN);
-    setGym(DEFAULT_GYM);
-    setCurrentScreen(Screen.DASHBOARD);
-    setRefreshKey((k) => k + 1);
-    showToast("All data cleared. Refreshing from database...", "success");
+  // Subscription Plans: Save edited plans
+  const handleSavePlans = (updatedPlans: SubscriptionPlan[]) => {
+    setSubscriptionPlans(updatedPlans);
+    showToast("Subscription plans updated successfully!", "success");
   };
 
-  // Utility to auto toggle adding a member from sidebar
-  const handleOpenNewMemberOnDirectory = () => {
+  // Add Member Wizard: Complete all 3 steps
+  const syncMemberToBackend = async (
+    localId: string,
+    m: Member,
+    planName: string,
+    planPrice: number,
+  ) => {
+    const isCustomBackend = settings.backendUrl && settings.backendUrl.trim();
+    const hasToken = settings.backendToken && settings.backendToken.trim();
+    if (!isCustomBackend || !hasToken) return;
+    try {
+      const memberRes = await fetch(getApiUrl("/api/members"), {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          name: m.name, email: m.email, phone: m.phone, age: m.age, address: m.address,
+        }),
+      });
+      if (!memberRes.ok) {
+        const errBody = await memberRes.json().catch(() => ({}));
+        const reason = errBody.message || errBody.error || `Server error (${memberRes.status})`;
+        if (memberRes.status === 401) {
+          showToast("Session expired. Please log out and log back in.", "error");
+        } else {
+          showToast(`Backend sync failed: ${reason}`, "error");
+        }
+        return;
+      }
+      const memberData = await memberRes.json();
+      const createdMember = memberData.data || memberData.member || memberData;
+      const createdId = createdMember.id;
+      if (!createdId) return;
+
+      setMembers((prev) =>
+        prev.map((item) => (item.id === localId ? { ...item, id: String(createdId) } : item))
+      );
+
+      let planId = 1;
+      const plansRes = await fetch(getApiUrl("/api/memberships/plans"), { headers: getHeaders() });
+      if (plansRes.ok) {
+        const rawPlans = await plansRes.json();
+        const plansList = Array.isArray(rawPlans) ? rawPlans : (rawPlans.data || rawPlans.plans || []);
+        const matchingPlan = plansList.find((p: any) =>
+          p.name.toLowerCase().includes(planName.toLowerCase()) || p.price === planPrice
+        );
+        if (matchingPlan) {
+          planId = matchingPlan.id;
+        } else {
+          const createPlanRes = await fetch(getApiUrl("/api/memberships/plans"), {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+              name: planName,
+              price: planPrice,
+              durationMonths: planName.includes("6 Months") ? 6 : (planName.includes("Year") || planName.includes("Annual") ? 12 : 1),
+              description: `${planName} premium access package`,
+            }),
+          });
+          if (createPlanRes.ok) {
+            const newPlanData = await createPlanRes.json();
+            planId = (newPlanData.data || newPlanData.plan || newPlanData).id || 1;
+          }
+        }
+      }
+      await fetch(getApiUrl("/api/memberships/subscribe"), {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ memberId: createdId, planId, recordPayment: false }),
+      });
+    } catch {
+      showToast("Could not reach backend server. Check your connection.", "error");
+    }
+  };
+
+  const handleAddMemberWizardComplete = (result: {
+    member: Omit<Member, "id">;
+    planName: string;
+    planPrice: number;
+    paymentType: "UPI" | "Cash";
+  }) => {
+    const generatedId = `#TF-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newM: Member = {
+      ...result.member,
+      id: generatedId,
+    };
+
+    setMembers((prev) => [newM, ...prev]);
+    showToast(`Member ${newM.name} created successfully with ${result.planName}.`, "success");
+
+    syncMemberToBackend(generatedId, newM, result.planName, result.planPrice);
+
+    const today = new Date();
+    const dateStr = today.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+
+    const paymentMethod = result.paymentType === "UPI" ? "UPI" as const : "Cash" as const;
+    const methodDetail = result.paymentType === "UPI" ? "UPI QR Payment" : "Cash at Front Desk";
+
+    const renewalTx: Transaction = {
+      id: `TX-${Math.floor(10000 + Math.random() * 90000)}`,
+      memberName: newM.name,
+      planName: result.planName,
+      paymentMethod,
+      methodDetail,
+      amount: result.planPrice,
+      date: dateStr,
+      status: "Completed",
+    };
+    setTransactions((prev) => [renewalTx, ...prev]);
+
     setCurrentScreen(Screen.MEMBERS_DIRECTORY);
-    // Dynamic message instruction
-    showToast("Tap 'Add New Member' on the top right to register.", "info");
+  };
+
+  const handleOpenWizard = () => {
+    setCurrentScreen(Screen.ADD_MEMBER_WIZARD);
   };
 
   const handleNavigationTransition = (target: Screen) => {
@@ -862,29 +857,37 @@ useEffect(() => {
             members={members}
             transactions={transactions}
             onNavigate={setCurrentScreen}
-            onRenewMember={handleRenewMemberRouting}
           />
         );
       case Screen.MEMBERS_DIRECTORY:
         return (
           <MembersView
             members={members}
+            plans={subscriptionPlans}
             onAddMember={handleAddMember}
             onEditMember={handleEditMember}
             onDeleteMember={handleDeleteMember}
-            onRenewMember={handleRenewMemberRouting}
             onConfirmRenewal={handleConfirmRenewalSubmit}
+            onNavigate={setCurrentScreen}
+            onOpenWizard={handleOpenWizard}
           />
         );
       case Screen.PAYMENTS_FINANCE:
         return <PaymentsView transactions={transactions} />;
-      case Screen.MEMBERSHIP_RENEWAL:
+      case Screen.SUBSCRIPTION_PLANS:
         return (
-          <RenewalView
+          <SubscriptionPlansView
+            plans={subscriptionPlans}
+            onSave={handleSavePlans}
+          />
+        );
+      case Screen.ADD_MEMBER_WIZARD:
+        return (
+          <AddMemberWizard
             members={members}
-            preselectedMemberId={preselectedMemberId}
-            onConfirmRenewal={handleConfirmRenewalSubmit}
-            onNavigate={setCurrentScreen}
+            plans={subscriptionPlans}
+            onComplete={handleAddMemberWizardComplete}
+            onCancel={() => setCurrentScreen(Screen.MEMBERS_DIRECTORY)}
           />
         );
       case Screen.SETTINGS:
@@ -903,7 +906,6 @@ useEffect(() => {
             members={members}
             transactions={transactions}
             onNavigate={setCurrentScreen}
-            onRenewMember={handleRenewMemberRouting}
           />
         );
     }
@@ -950,7 +952,6 @@ useEffect(() => {
       <Sidebar
         currentScreen={currentScreen}
         onNavigate={handleNavigationTransition}
-        onOpenNewMemberModal={handleOpenNewMemberOnDirectory}
         gymName={gym.name}
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
@@ -962,15 +963,10 @@ useEffect(() => {
         {/* Persistent App bar */}
         <Header
           admin={admin}
-          searchQuery={globalSearch}
-          onSearchChange={(q) => {
-            setGlobalSearch(q);
-            if (currentScreen !== Screen.MEMBERS_DIRECTORY && currentScreen !== Screen.PAYMENTS_FINANCE) {
-              setCurrentScreen(Screen.MEMBERS_DIRECTORY);
-            }
-          }}
           onNavigate={handleNavigationTransition}
           currentScreen={currentScreen}
+          collapsed={sidebarCollapsed}
+          onToggleSidebar={handleToggleSidebar}
         />
 
         {/* Primary responsive view stage */}
@@ -979,7 +975,7 @@ useEffect(() => {
         </main>
 
         {/* Global Footer */}
-        <footer className="bg-slate-900 text-slate-400 px-8 py-2">
+        <footer className="bg-slate-900 text-slate-400 px-8 py-4">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
             <div className="flex items-center gap-2">
               <span className="font-bold text-white tracking-tight">FitLife Pro</span>

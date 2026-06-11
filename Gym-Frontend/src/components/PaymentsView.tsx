@@ -5,11 +5,10 @@
 
 import { useState } from "react";
 import { Transaction } from "../types";
-import { DollarSign, Download, CreditCard, Banknote, Landmark, QrCode } from "lucide-react";   // MoreVertical is used for the 3 dot which we removed
+import { Download, CreditCard, Banknote, Landmark, QrCode } from "lucide-react";
 
 interface PaymentsViewProps {
   transactions: Transaction[];
-  onAddTransaction?: (transaction: any) => void;
 }
 
 export default function PaymentsView({ transactions }: PaymentsViewProps) {
@@ -76,11 +75,6 @@ export default function PaymentsView({ transactions }: PaymentsViewProps) {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  // Live dynamic stats computation
-  const totalRevenue = transactions
-    .filter((tx) => tx.status === "Completed")
-    .reduce((acc, current) => acc + current.amount, 0);
 
   return (
     <div className="animate-fade-in space-y-3">

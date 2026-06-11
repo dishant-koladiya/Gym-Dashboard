@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { z } from "zod";
-import { Member, Screen } from "../types";
+import { Member, Screen, SubscriptionPlan } from "../types";
 import { PACKAGES } from "../data";
 import {
   Search,
@@ -20,7 +20,6 @@ import {
   Ban,
   UserCheck,
   UserPlus,
-  QrCode,
   ShieldCheck,
   Banknote,
   Phone,
@@ -30,21 +29,26 @@ import {
 
 interface MembersViewProps {
   members: Member[];
+  plans?: SubscriptionPlan[];
   onAddMember: (member: Omit<Member, "id">) => void;
   onEditMember: (member: Member) => void;
   onDeleteMember: (id: string) => void;
-  onRenewMember: (id: string) => void;
   onConfirmRenewal: (memberId: string, planName: string, amount: number, paymentType: "QR" | "Cash") => void;
+  onNavigate?: (screen: Screen) => void;
+  onOpenWizard?: () => void;
 }
 
 export default function MembersView({
   members,
+  plans,
   onAddMember,
   onEditMember,
   onDeleteMember,
-  onRenewMember,
   onConfirmRenewal,
+  onNavigate,
+  onOpenWizard,
 }: MembersViewProps) {
+  const planOptions = plans || PACKAGES;
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -54,6 +58,7 @@ export default function MembersView({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activeMemberToEdit, setActiveMemberToEdit] = useState<Member | null>(null);
+  const [deleteConfirmMember, setDeleteConfirmMember] = useState<Member | null>(null);
 
   // New member form temp local state
   const [newName, setNewName] = useState("");
@@ -117,7 +122,9 @@ export default function MembersView({
 
   // Renewal modal state
   const [renewalMember, setRenewalMember] = useState<Member | null>(null);
-  const [renewalPlan, setRenewalPlan] = useState(PACKAGES[1]);
+  const [renewalPlan, setRenewalPlan] = useState(
+    planOptions.find((p) => p.active) || planOptions[0]
+  );
   const [renewalPaymentType, setRenewalPaymentType] = useState<"QR" | "Cash">("QR");
 
   // Validation state
@@ -323,9 +330,15 @@ export default function MembersView({
           <p className="text-slate-500 font-medium">Manage your gym community and membership lifecycles</p>
         </div>
         
-        {/* Action button - Opens Modal */}
+        {/* Action button - Opens Wizard */}
         <button
-          onClick={handleOpenAddModal}
+          onClick={() => {
+            if (onOpenWizard) {
+              onOpenWizard();
+            } else {
+              handleOpenAddModal();
+            }
+          }}
           className="bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition active:scale-[0.98] cursor-pointer"
         >
           <Plus className="w-4.5 h-4.5" />
@@ -338,17 +351,14 @@ export default function MembersView({
         {memberStats.map((stat, i) => {
           const Icon = stat.icon;
           return (
-            <div key={i} className="bg-white border border-slate-200 p-6 rounded-lg transition-all hover:border-blue-500 hover:shadow-sm">
-              <div className="flex justify-between items-start mb-4">
+            <div key={i} className="bg-white border border-slate-200 p-5 rounded-lg transition-all hover:border-blue-500 hover:shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
                 <div className={`p-2.5 rounded-lg ${stat.color}`}>
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${stat.isPositive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                  {stat.change}
-                </span>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{stat.title}</p>
               </div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">{stat.title}</p>
-              <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{stat.value}</h3>
+              <h3 className="text-2xl font-bold text-slate-800 tracking-tight text-center">{stat.value}</h3>
             </div>
           );
         })}
@@ -380,7 +390,7 @@ export default function MembersView({
             onChange={(e) => setPlanFilter(e.target.value)}
           >
             <option value="All">All Plans</option>
-            {PACKAGES.map((pkg) => (
+            {planOptions.filter((p) => p.active).map((pkg) => (
               <option key={pkg.name} value={pkg.name}>{pkg.name}</option>
             ))}
           </select>
@@ -539,7 +549,7 @@ export default function MembersView({
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2.5">
                         <button
-                          onClick={() => { setRenewalMember(member); setRenewalPlan(PACKAGES[1]); setRenewalPaymentType("QR"); }}
+                          onClick={() => { setRenewalMember(member); setRenewalPlan(planOptions.find((p) => p.active) || planOptions[1] || planOptions[0]); setRenewalPaymentType("QR"); }}
                           className="bg-blue-600 text-white font-bold text-xs px-3.5 py-1.5 rounded hover:bg-blue-700 transition active:scale-[0.97] cursor-pointer"
                         >
                           Renew
@@ -554,11 +564,7 @@ export default function MembersView({
                         </button>
                         
                         <button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to delete ${member.name}?`)) {
-                              onDeleteMember(member.id);
-                            }
-                          }}
+                          onClick={() => setDeleteConfirmMember(member)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-50 rounded transition cursor-pointer"
                           title="Remove Member Profile"
                         >
@@ -925,15 +931,15 @@ export default function MembersView({
               {/* Plan Selector */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Plan</label>
-                <select
-                  value={renewalPlan.name}
-                  onChange={(e) => {
-                    const pkg = PACKAGES.find((p) => p.name === e.target.value) || PACKAGES[0];
-                    setRenewalPlan(pkg);
-                  }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
-                >
-                  {PACKAGES.map((pkg) => (
+                  <select
+                    value={renewalPlan.name}
+                    onChange={(e) => {
+                      const pkg = planOptions.find((p) => p.name === e.target.value) || planOptions[0];
+                      setRenewalPlan(pkg);
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 cursor-pointer"
+                  >
+                    {planOptions.filter((p) => p.active).map((pkg) => (
                     <option key={pkg.name} value={pkg.name}>
                       {pkg.name} — ₹{pkg.price.toLocaleString()}
                     </option>
@@ -1013,6 +1019,49 @@ export default function MembersView({
                 >
                   <ShieldCheck className="w-4 h-4" />
                   <span>Renew</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmMember && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-300 w-full max-w-sm rounded-lg overflow-hidden shadow-xl animate-scale-in">
+            <div className="flex justify-between items-center px-6 py-4 bg-rose-50 border-b border-rose-200">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+                <span>Delete Member</span>
+              </h3>
+              <button onClick={() => setDeleteConfirmMember(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-700 text-sm mb-2">
+                Are you sure you want to delete <span className="font-bold text-slate-900">{deleteConfirmMember.name}</span>?
+              </p>
+              <p className="text-xs text-slate-500 mb-6">
+                This action cannot be undone. All associated data will be permanently removed.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setDeleteConfirmMember(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onDeleteMember(deleteConfirmMember.id);
+                    setDeleteConfirmMember(null);
+                  }}
+                  className="px-5 py-2 bg-rose-600 text-white rounded text-xs font-bold hover:bg-rose-700 transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete</span>
                 </button>
               </div>
             </div>

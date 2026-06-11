@@ -7,12 +7,21 @@ export enum Screen {
   LOGIN = "login",
   REGISTER = "register",
   FORGOT_PASSWORD = "forgot_password",
-  REG_SUCCESS = "reg_success", // QR Code payment screen right after registering / checkout
+  REG_SUCCESS = "reg_success",
   DASHBOARD = "dashboard",
   MEMBERS_DIRECTORY = "members_directory",
   PAYMENTS_FINANCE = "payments_finance",
-  MEMBERSHIP_RENEWAL = "membership_renewal", // Vikram Singh renewal screen
+  SUBSCRIPTION_PLANS = "subscription_plans",
+  ADD_MEMBER_WIZARD = "add_member_wizard",
   SETTINGS = "settings",
+}
+
+export interface SubscriptionPlan {
+  name: string;
+  term: string;
+  price: number;
+  features: string[];
+  active: boolean;
 }
 
 export interface Member {
@@ -57,14 +66,6 @@ export interface GymInfo {
   address: string;
   phone: string;
   website: string;
-}
-
-export interface AppNotification {
-  id: string;
-  message: string;
-  memberName: string;
-  timestamp: string;
-  read: boolean;
 }
 
 export interface SystemSettings {

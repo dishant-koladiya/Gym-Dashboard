@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { AdminAccount, GymInfo, SystemSettings, Screen } from "../types";
-import { Save, Settings2, Key, Home, LogOut, Camera } from "lucide-react";
+import { Save, Settings2, Key, Home, Camera } from "lucide-react";
 
 interface SettingsViewProps {
   admin: AdminAccount;
@@ -64,6 +64,7 @@ export default function SettingsView({ admin, gym, settings, onSave, onNavigate 
         website: gymWebsite,
       },
       settings: {
+        ...settings,
         theme: "Light",
         emailUpdates,
         desktopAlerts,
@@ -304,18 +305,6 @@ export default function SettingsView({ admin, gym, settings, onSave, onNavigate 
           </label>
         </div> */}
 
-      </div>
-
-      {/* Logout */}
-      <div className="pt-6 border-t border-slate-200">
-        <button
-          type="button"
-          onClick={() => onNavigate(Screen.LOGIN)}
-          className="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-sm font-bold transition cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Logout</span>
-        </button>
       </div>
 
     </form>

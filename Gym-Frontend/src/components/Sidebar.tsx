@@ -11,14 +11,11 @@ import {
   CreditCard,
   Award,
   Settings,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 interface SidebarProps {
   currentScreen: Screen;
   onNavigate: (screen: Screen) => void;
-  onOpenNewMemberModal: () => void;
   gymName: string;
   collapsed: boolean;
   onToggle: () => void;
@@ -48,8 +45,8 @@ export default function Sidebar({
       icon: CreditCard,
     },
     {
-      id: Screen.MEMBERSHIP_RENEWAL,
-      label: "Memberships",
+      id: Screen.SUBSCRIPTION_PLANS,
+      label: "Plans",
       icon: Award,
     },
     {
@@ -66,7 +63,7 @@ export default function Sidebar({
       }`}
     >
       {/* Brand Identity / Logo Header */}
-      <div className={`mb-8 ${collapsed ? "px-0 flex justify-center" : "px-6"}`}>
+      <div className={`${collapsed ? "px-0 flex justify-center" : "px-6"} mb-8`}>
         <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
           <div className="w-10 h-10 bg-blue-600 flex items-center justify-center rounded shadow-sm text-white flex-shrink-0">
             <Dumbbell className="w-5 h-5" />
@@ -103,26 +100,6 @@ export default function Sidebar({
           );
         })}
       </nav>
-
-      {/* Collapse toggle button */}
-      <div className="px-2 mt-auto pt-4 border-t border-slate-200">
-        <button
-          onClick={onToggle}
-          className={`w-full flex items-center gap-3 px-3 py-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition rounded-lg cursor-pointer ${
-            collapsed ? "justify-center px-0" : ""
-          }`}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <ChevronRight className="w-5 h-5 flex-shrink-0" />
-          ) : (
-            <>
-              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm"></span>
-            </>
-          )}
-        </button>
-      </div>
     </aside>
   );
 }

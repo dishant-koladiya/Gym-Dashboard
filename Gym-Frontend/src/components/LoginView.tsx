@@ -16,7 +16,6 @@ export default function LoginView({ onLogin, onNavigate }: LoginViewProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -104,19 +103,6 @@ export default function LoginView({ onLogin, onNavigate }: LoginViewProps) {
                 {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
               </button>
             </div>
-          </div>
-
-          {/* Remember and Submit actions */}
-          <div className="flex items-center justify-between pt-1">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-550 select-none">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-600 cursor-pointer"
-              />
-              <span>Remember current session</span>
-            </label>
           </div>
 
           <button
