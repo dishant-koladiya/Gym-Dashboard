@@ -154,12 +154,17 @@ useEffect(() => {
         } else if (raw.data && Array.isArray(raw.data.members)) {
           list = raw.data.members;
         }
-        const mapped = list.map((m: any) => mapBackendMemberToFrontend(m));
-        if (mapped.length > 0) {
-          setMembers(mapped);
-        }
+        setMembers((prev) => {
+          const mapped = list.map((m: Record<string, unknown>) => {
+            const frontend = mapBackendMemberToFrontend(m);
+            const existing = prev.find((x) => x.id === frontend.id);
+            if (existing?.avatarUrl) frontend.avatarUrl = existing.avatarUrl;
+            return frontend;
+          });
+          return mapped.length > 0 ? mapped : prev;
+        });
       }
-    } catch (e) {
+    } catch (e: unknown) {
       console.log("Failed to load active members", e);
     }
   }
@@ -182,29 +187,48 @@ useEffect(() => {
     return headers;
   };
 
-  // Mapper from live Prisma backend schema payload to system frontend states
-  const mapBackendMemberToFrontend = (m: any): Member => {
-    const activeSub = m.subscriptions && m.subscriptions[0] ? m.subscriptions[0] : null;
-    const planName = activeSub && activeSub.plan ? activeSub.plan.name : "No Active Plan";
-    const planPrice = activeSub && activeSub.plan ? parseFloat(activeSub.plan.price) || 0 : 0;
-    
-    let joinDate = m.createdAt 
-      ? new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
-      : new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-    if (activeSub && activeSub.startDate) {
-      joinDate = new Date(activeSub.startDate).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  const mapBackendMemberToFrontend = (m: Record<string, unknown>): Member => {
+    const memberSubscriptions = m.subscriptions as Array<Record<string, unknown>> | undefined;
+    const activeSub = memberSubscriptions?.[0] ?? null;
+    const activeSubPlan = activeSub?.plan as Record<string, unknown> | undefined;
+    const planName = activeSubPlan?.name as string | undefined
+      ?? (m.plan_name as string | undefined) ?? "No Active Plan";
+    const planPrice = activeSubPlan ? parseFloat(activeSubPlan.price as string) || 0
+      : typeof m.price === 'number' ? m.price
+      : 0;
+
+    const fmt = (d: string) => {
+      const parsed = new Date(d);
+      return isNaN(parsed.getTime())
+        ? new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+        : parsed.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+    };
+
+    let joinDate = (m.createdAt as string | undefined)
+      ? fmt(m.createdAt as string)
+      : (m.join_date as string | undefined)
+        ? fmt(m.join_date as string)
+        : (m.joinDate as string | undefined)
+          ? fmt(m.joinDate as string)
+          : new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+
+    if (activeSub && (activeSub.startDate as string | undefined)) {
+      joinDate = fmt(activeSub.startDate as string);
     }
 
     let expiryDate = "No Expiry";
-    if (activeSub && activeSub.endDate) {
-      expiryDate = new Date(activeSub.endDate).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+    if (m.expiry_date as string | undefined) {
+      expiryDate = fmt(m.expiry_date as string);
+    } else if (activeSub && (activeSub.endDate as string | undefined)) {
+      expiryDate = fmt(activeSub.endDate as string);
     }
 
     let status: "Active" | "Expired" | "Expiring" = "Active";
-    if (m.status === "INACTIVE" || (activeSub && activeSub.status === "EXPIRED")) {
+    const raw = String((m.status as string | undefined) || '').toLowerCase();
+    if (raw === "inactive" || raw === "expired" || (activeSub && (activeSub.status as string) === "EXPIRED")) {
       status = "Expired";
-    } else if (activeSub && activeSub.endDate) {
-      const timeDiff = new Date(activeSub.endDate).getTime() - Date.now();
+    } else if (activeSub && (activeSub.endDate as string | undefined)) {
+      const timeDiff = new Date(activeSub.endDate as string).getTime() - Date.now();
       const daysDiff = timeDiff / (1000 * 3600 * 24);
       if (daysDiff < 0) {
         status = "Expired";
@@ -213,18 +237,19 @@ useEffect(() => {
       }
     }
 
-    const lastActive = m.attendance && m.attendance[0]
-      ? new Date(m.attendance[0].checkIn).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+    const attendance = m.attendance as Array<Record<string, unknown>> | undefined;
+    const lastActive = attendance?.[0]
+      ? fmt((attendance[0].checkIn as string))
       : joinDate;
 
     return {
-      id: m.id ? String(m.id) : String(Math.floor(1000 + Math.random() * 9000)),
-      name: m.name,
-      email: m.email,
-      phone: m.phone || "",
-      age: m.age || 0,
-      address: m.address || "",
-      avatarUrl: m.avatarUrl || undefined,
+      id: (m.id as string | undefined) ? String(m.id) : String(Math.floor(1000 + Math.random() * 9000)),
+      name: m.name as string | undefined,
+      email: m.email as string | undefined,
+      phone: (m.phone as string | undefined) || "",
+      age: (m.age as number | undefined) || 0,
+      address: (m.address as string | undefined) || "",
+      avatarUrl: (m.avatarUrl as string | undefined) || undefined,
       joinDate,
       expiryDate,
       plan: planName,
@@ -235,23 +260,27 @@ useEffect(() => {
     };
   };
 
-  // Mapper from live Prisma backend Payment schema to frontend Transaction
-  const mapBackendPaymentToFrontend = (p: any): Transaction => {
-    const memberName = p.subscription && p.subscription.member ? p.subscription.member.name : "N/A";
-    const planName = p.subscription && p.subscription.plan ? p.subscription.plan.name : "N/A";
-    const dateStr = p.paymentDate 
-      ? new Date(p.paymentDate).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
-      : new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  const mapBackendPaymentToFrontend = (p: Record<string, unknown>): Transaction => {
+    const sub = p.subscription as Record<string, unknown> | undefined;
+    const subMember = sub?.member as Record<string, unknown> | undefined;
+    const subPlan = sub?.plan as Record<string, unknown> | undefined;
+    const memberName = (subMember?.name as string | undefined) || (p.member_name as string | undefined) || (p.memberName as string | undefined) || "N/A";
+    const planName = (subPlan?.name as string | undefined) || (p.plan_name as string | undefined) || (p.planName as string | undefined) || "N/A";
+    const dateStr = (p.paymentDate as string | undefined)
+      ? new Date(p.paymentDate as string).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+      : (p.date as string | undefined)
+        ? new Date(p.date as string).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+        : new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 
     return {
-      id: p.id ? String(p.id) : String(Math.floor(10000 + Math.random() * 90000)),
+      id: (p.id as string | undefined) ? String(p.id) : String(Math.floor(10000 + Math.random() * 90000)),
       memberName,
       planName,
-      paymentMethod: "UPI",
-      methodDetail: "Prisma Database Settlement",
-      amount: parseFloat(p.amount) || 0,
+      paymentMethod: ((p.payment_method as string | undefined) || (p.paymentMethod as string | undefined) || "UPI") as "Visa" | "Mastercard" | "Cash" | "Bank Transfer" | "UPI",
+      methodDetail: (p.method_detail as string | undefined) || (p.methodDetail as string | undefined) || "Database Settlement",
+      amount: parseFloat(p.amount as string) || 0,
       date: dateStr,
-      status: p.status === "PAID" ? "Completed" : "Pending"
+      status: (p.status as string) === "PAID" || (p.status as string) === "Completed" ? "Completed" : "Pending"
     };
   };
 
@@ -273,12 +302,17 @@ useEffect(() => {
           } else if (raw && Array.isArray(raw.members)) {
             list = raw.members;
           }
-          const mapped = list.map((m: any) => mapBackendMemberToFrontend(m));
-          if (mapped.length > 0) {
-            setMembers(mapped);
-          }
+          setMembers((prev) => {
+            const mapped = list.map((m: Record<string, unknown>) => {
+              const frontend = mapBackendMemberToFrontend(m);
+              const existing = prev.find((x) => x.id === frontend.id);
+              if (existing?.avatarUrl) frontend.avatarUrl = existing.avatarUrl;
+              return frontend;
+            });
+            return mapped.length > 0 ? mapped : prev;
+          });
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.log("Offline or connection fallback for members.");
       }
 
@@ -298,9 +332,13 @@ useEffect(() => {
           } else if (raw && Array.isArray(raw.payments)) {
             list = raw.payments;
           }
-          const mapped = list.map((p: any) => mapBackendPaymentToFrontend(p));
+          const mapped = list.map((p: Record<string, unknown>) => mapBackendPaymentToFrontend(p));
           if (mapped.length > 0) {
-            setTransactions(mapped);
+            setTransactions((prev) => {
+              const existingIds = new Set(mapped.map((t) => t.id));
+              const localOnly = prev.filter((t) => !existingIds.has(t.id));
+              return [...mapped, ...localOnly];
+            });
           }
         } else {
           const fallbackRes = await fetch("/api/transactions");
@@ -309,7 +347,7 @@ useEffect(() => {
             if (Array.isArray(data)) setTransactions(data);
           }
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.log("Offline local storage fallback active.");
       }
 
@@ -319,7 +357,7 @@ useEffect(() => {
           const data = await res.json();
           if (data && data.fullName) setAdmin(data);
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.log("Admin config fallback active.");
       }
 
@@ -329,7 +367,7 @@ useEffect(() => {
           const data = await res.json();
           if (data && data.name) setGym(data);
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.log("Gym config fallback active.");
       }
 
@@ -339,7 +377,7 @@ useEffect(() => {
           const data = await res.json();
           if (data) setSettings((prev) => ({ ...prev, ...data }));
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.log("System settings config fallback active.");
       }
     }
@@ -385,21 +423,21 @@ useEffect(() => {
           backendToken: jwtoken,
         }));
         
-        setAdmin({
+        setAdmin((prev) => ({
           fullName: adminObj.name || adminObj.fullName || "Backend Admin",
           username: adminObj.username || emailStr.split("@")[0],
           email: adminObj.email || emailStr,
           role: "Super Administrator",
-          avatarUrl: DEFAULT_ADMIN.avatarUrl,
-        });
+          avatarUrl: prev.avatarUrl || DEFAULT_ADMIN.avatarUrl,
+        }));
         
         localStorage.setItem("tf_is_logged_in", "true");
         setIsLoggedIn(true);
         setCurrentScreen(Screen.DASHBOARD);
         showToast(`Welcome back! Live database synchronized.`, "success");
         return undefined;
-      } catch (err: any) {
-        return err.message || "Connection refused by the backend server";
+      } catch (err: unknown) {
+        return err instanceof Error ? err.message : "Connection refused by the backend server";
       }
     } else {
       // Offline local sandbox fallback - verify password matches if they registered locally
@@ -414,13 +452,13 @@ useEffect(() => {
 
       const mockName = emailStr.split("@")[0];
       const capitalized = mockName.charAt(0).toUpperCase() + mockName.slice(1);
-      setAdmin({
+      setAdmin((prev) => ({
         fullName: capitalized || "Alex Rivera",
         username: mockName || "arivera_admin",
         email: emailStr,
         role: "Super Administrator",
-        avatarUrl: DEFAULT_ADMIN.avatarUrl,
-      });
+        avatarUrl: prev.avatarUrl || DEFAULT_ADMIN.avatarUrl,
+      }));
       localStorage.setItem("tf_is_logged_in", "true");
       setIsLoggedIn(true);
       setCurrentScreen(Screen.DASHBOARD);
@@ -478,8 +516,8 @@ useEffect(() => {
             backendToken: registeredToken,
           }));
         }
-      } catch (err: any) {
-        return err.message || "Connection refused by backend during account registration.";
+      } catch (err: unknown) {
+        return err instanceof Error ? err.message : "Connection refused by backend during account registration.";
       }
     } else {
       // Local local storage sandbox state persistence
@@ -543,6 +581,25 @@ useEffect(() => {
     setCurrentScreen(Screen.MEMBERS_DIRECTORY);
 
     syncMemberToBackend(generatedId, newM, newM.plan, newM.price);
+
+    const today = new Date();
+    const dateStr = today.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+
+    const newTx: Transaction = {
+      id: `TX-${Math.floor(10000 + Math.random() * 90000)}`,
+      memberName: newM.name,
+      planName: newM.plan,
+      paymentMethod: "UPI",
+      methodDetail: "UPI QR Payment",
+      amount: newM.price,
+      date: dateStr,
+      status: "Completed",
+    };
+    setTransactions((prev) => [newTx, ...prev]);
   };
 
   // Directory: Modify existing member properties
@@ -555,7 +612,14 @@ useEffect(() => {
 
     try {
       const isCustomBackend = settings.backendUrl && settings.backendUrl.trim();
-      const dbId = isCustomBackend ? updatedM.id.replace("#TF-", "") : updatedM.id;
+      const hasToken = settings.backendToken && settings.backendToken.trim();
+      if (!isCustomBackend || !hasToken) return;
+
+      const dbId = updatedM.id.replace("#TF-", "");
+      const expiryForBackend = updatedM.expiryDate && updatedM.expiryDate !== "No Expiry"
+        ? new Date(updatedM.expiryDate).toISOString().split('T')[0]
+        : "";
+
       const response = await fetch(getApiUrl(`/api/members/${encodeURIComponent(dbId)}`), {
         method: "PUT",
         headers: getHeaders(),
@@ -563,8 +627,10 @@ useEffect(() => {
           name: updatedM.name,
           email: updatedM.email,
           phone: updatedM.phone,
+          age: updatedM.age,
           address: updatedM.address,
-          status: updatedM.status === "Expired" ? "INACTIVE" : "ACTIVE",
+          expiry_date: expiryForBackend,
+          status: updatedM.status === "Expired" ? "inactive" : "active",
         }),
       });
 
@@ -572,9 +638,30 @@ useEffect(() => {
         setMembers(originalMembers);
         const errData = await response.json().catch(() => ({}));
         showToast(`Backend edit failed: ${errData.message || "Invalid DB request"}`, "error");
-      } else {
-        showToast(`Modifications for ${updatedM.name} saved successfully.`, "success");
+        return;
       }
+
+      // Sync plan change if different from original
+      const originalMember = originalMembers.find((m) => m.id === updatedM.id);
+      if (originalMember && originalMember.plan !== updatedM.plan) {
+        const plansRes = await fetch(getApiUrl("/api/memberships/plans"), { headers: getHeaders() });
+        if (plansRes.ok) {
+          const rawPlans = await plansRes.json();
+          const plansList = Array.isArray(rawPlans) ? rawPlans : (rawPlans.data || rawPlans.plans || []);
+          const matchingPlan = plansList.find((p: { name: string; price: number }) =>
+            p.name.toLowerCase().includes(updatedM.plan.toLowerCase()) || p.price === updatedM.price
+          );
+          if (matchingPlan) {
+            await fetch(getApiUrl("/api/memberships/subscribe"), {
+              method: "POST",
+              headers: getHeaders(),
+              body: JSON.stringify({ memberId: dbId, planId: matchingPlan.id, recordPayment: false }),
+            });
+          }
+        }
+      }
+
+      showToast(`Modifications for ${updatedM.name} saved successfully.`, "success");
     } catch (err) {
       setMembers(originalMembers);
       console.log("API edit sync fallback active.", err);
@@ -680,6 +767,31 @@ useEffect(() => {
     };
     setTransactions((prev) => [renewalTx, ...prev]);
     showToast(`Membership for ${mName} renewed successfully! Plan active until ${expiryDateStr}.`, "success");
+
+    // Sync new expiry to backend
+    syncRenewalToBackend(memberId, planNameStr, expiryDateStr);
+  };
+
+  const syncRenewalToBackend = async (memberId: string, planNameStr: string, expiryDateStr: string) => {
+    const isCustomBackend = settings.backendUrl && settings.backendUrl.trim();
+    const hasToken = settings.backendToken && settings.backendToken.trim();
+    if (!isCustomBackend || !hasToken) return;
+
+    const dbId = memberId.replace("#TF-", "");
+    const expiryIso = new Date(expiryDateStr).toISOString().split('T')[0];
+
+    try {
+      await fetch(getApiUrl(`/api/members/${encodeURIComponent(dbId)}`), {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          expiry_date: expiryIso,
+          status: "active",
+        }),
+      });
+    } catch {
+      console.log("Renewal backend sync skipped.");
+    }
   };
 
   // Settings: Apply corporate parameters
@@ -728,11 +840,16 @@ useEffect(() => {
     const hasToken = settings.backendToken && settings.backendToken.trim();
     if (!isCustomBackend || !hasToken) return;
     try {
+      const expiryForBackend = m.expiryDate && m.expiryDate !== "No Expiry"
+        ? new Date(m.expiryDate).toISOString().split('T')[0]
+        : "";
+
       const memberRes = await fetch(getApiUrl("/api/members"), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
           name: m.name, email: m.email, phone: m.phone, age: m.age, address: m.address,
+          expiry_date: expiryForBackend,
         }),
       });
       if (!memberRes.ok) {
@@ -754,16 +871,16 @@ useEffect(() => {
         prev.map((item) => (item.id === localId ? { ...item, id: String(createdId) } : item))
       );
 
-      let planId = 1;
+      let foundPlanId: string | null = null;
       const plansRes = await fetch(getApiUrl("/api/memberships/plans"), { headers: getHeaders() });
       if (plansRes.ok) {
         const rawPlans = await plansRes.json();
         const plansList = Array.isArray(rawPlans) ? rawPlans : (rawPlans.data || rawPlans.plans || []);
-        const matchingPlan = plansList.find((p: any) =>
+        const matchingPlan = plansList.find((p: { name: string; price: number }) =>
           p.name.toLowerCase().includes(planName.toLowerCase()) || p.price === planPrice
         );
         if (matchingPlan) {
-          planId = matchingPlan.id;
+          foundPlanId = matchingPlan.id;
         } else {
           const createPlanRes = await fetch(getApiUrl("/api/memberships/plans"), {
             method: "POST",
@@ -777,15 +894,20 @@ useEffect(() => {
           });
           if (createPlanRes.ok) {
             const newPlanData = await createPlanRes.json();
-            planId = (newPlanData.data || newPlanData.plan || newPlanData).id || 1;
+            const createdPlan = newPlanData.data || newPlanData.plan || newPlanData;
+            if (createdPlan && createdPlan.id) {
+              foundPlanId = createdPlan.id;
+            }
           }
         }
       }
-      await fetch(getApiUrl("/api/memberships/subscribe"), {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify({ memberId: createdId, planId, recordPayment: false }),
-      });
+      if (foundPlanId) {
+        await fetch(getApiUrl("/api/memberships/subscribe"), {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ memberId: createdId, planId: foundPlanId, recordPayment: false }),
+        });
+      }
     } catch {
       showToast("Could not reach backend server. Check your connection.", "error");
     }
@@ -873,7 +995,7 @@ useEffect(() => {
           />
         );
       case Screen.PAYMENTS_FINANCE:
-        return <PaymentsView transactions={transactions} />;
+        return <PaymentsView transactions={transactions} members={members} />;
       case Screen.SUBSCRIPTION_PLANS:
         return (
           <SubscriptionPlansView
@@ -1004,7 +1126,7 @@ useEffect(() => {
 }
 
 // Inner modular Toast popups container for premium styling representation
-function ToastContainer({ toasts }: { toasts: any[] }) {
+function ToastContainer({ toasts }: { toasts: Array<{ id: string; message: string; type: string }> }) {
   return (
     <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50 max-w-sm pointer-events-none select-none">
       {toasts.map((toast) => {
@@ -1021,7 +1143,7 @@ function ToastContainer({ toasts }: { toasts: any[] }) {
               toast.type === "success"
                 ? "text-emerald-400"
                 : toast.type === "error"
-                ? "text-rose-450"
+                ? "text-rose-500"
                 : "text-blue-400"
             }`} />
             <p className="leading-normal">{toast.message}</p>

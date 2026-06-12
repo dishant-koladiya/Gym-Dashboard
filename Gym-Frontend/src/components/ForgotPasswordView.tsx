@@ -35,7 +35,7 @@ export default function ForgotPasswordView({ onNavigate }: ForgotPasswordViewPro
           <div className="inline-flex w-12 h-12 bg-blue-600 items-center justify-center rounded text-white shadow-md mx-auto">
             <Dumbbell className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-850 tracking-tight">Recover Credentials</h2>
+          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Recover Credentials</h2>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest leading-none">Titan Fitness security</p>
         </div>
 

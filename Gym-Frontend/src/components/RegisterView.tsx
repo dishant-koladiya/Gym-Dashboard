@@ -46,8 +46,8 @@ export default function RegisterView({ onRegister, onNavigate }: RegisterViewPro
       if (error) {
         setErrorMsg(error);
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Account registration failed");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Account registration failed");
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +62,7 @@ export default function RegisterView({ onRegister, onNavigate }: RegisterViewPro
           <div className="inline-flex w-12 h-12 bg-blue-600 items-center justify-center rounded text-white shadow-md mx-auto">
             <Dumbbell className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-850 tracking-tight">Create Admin Account</h2>
+          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Create Admin Account</h2>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest leading-none">Bootstrap gym console</p>
         </div>
 
@@ -149,7 +149,7 @@ export default function RegisterView({ onRegister, onNavigate }: RegisterViewPro
         </form>
 
         {/* Back link */}
-        <div className="text-center pt-2 border-t border-slate-150 text-xs">
+        <div className="text-center pt-2 border-t border-slate-100 text-xs">
           <span className="text-slate-500 font-medium">Already registered? </span>
           <button
             onClick={() => onNavigate(Screen.LOGIN)}

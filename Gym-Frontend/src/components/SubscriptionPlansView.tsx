@@ -83,13 +83,13 @@ export default function SubscriptionPlansView({
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
             Subscription Plans
           </h2>
-          <p className="text-slate-500 font-medium">
+          <p className="text-sm text-slate-500 font-medium">
             Manage pricing, features and availability
           </p>
         </div>
@@ -97,14 +97,14 @@ export default function SubscriptionPlansView({
         <button
           onClick={handleGlobalSave}
           disabled={!hasUnsavedChanges}
-          className={`bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg flex items-center gap-2 transition cursor-pointer ${
+          className={`bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition cursor-pointer ${
             hasUnsavedChanges
               ? "hover:bg-blue-700 active:scale-[0.98]"
               : "opacity-50 cursor-not-allowed"
           }`}
         >
-          <Save className="w-4 h-4" />
-          Save Changes
+          <Save className="w-3.5 h-3.5" />
+          Save
         </button>
       </div>
 
@@ -115,39 +115,39 @@ export default function SubscriptionPlansView({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {localPlans.map((plan) => {
           const badgeClass = badges[plan.term] || "bg-slate-100 text-slate-600";
           return (
             <div
               key={plan.name}
-              className={`bg-white border rounded-xl overflow-hidden shadow-sm flex flex-col min-h-[380px] transition ${
+              className={`bg-white border rounded-xl overflow-hidden shadow-sm flex flex-col transition ${
                 plan.active
                   ? "border-slate-200"
                   : "border-rose-200 opacity-70"
               }`}
             >
               {/* Card Header */}
-              <div className="p-5 pb-3">
+              <div className="p-6 pb-3">
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="text-lg font-bold text-slate-800">
                       {plan.name}
                     </h3>
                     <span
-                      className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mt-1 ${badgeClass}`}
+                      className={`inline-block text-[11px] font-bold px-3 py-1 rounded uppercase tracking-wider mt-1 ${badgeClass}`}
                     >
                       {plan.term}
                     </span>
                   </div>
                   <div className="relative">
-                    <Power className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <Power className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <select
                       value={plan.active ? "active" : "inactive"}
                       onChange={(e) =>
                         handleToggleActive(plan.name, e.target.value)
                       }
-                      className={`pl-10 pr-3 py-2 border rounded-lg text-xs font-bold appearance-none cursor-pointer bg-white focus:outline-none focus:ring-1 focus:ring-blue-600 ${
+                      className={`pl-8 pr-3 py-1.5 border rounded-lg text-xs font-bold appearance-none cursor-pointer bg-white focus:outline-none focus:ring-1 focus:ring-blue-600 ${
                         plan.active
                           ? "text-emerald-700 border-emerald-200"
                           : "text-rose-700 border-rose-200"
@@ -167,7 +167,7 @@ export default function SubscriptionPlansView({
                 <p className="text-2xl font-black text-blue-900 mt-3">
                   ₹{plan.price.toLocaleString()}
                 </p>
-                <p className="text-[11px] text-slate-400 font-medium">
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
                   +18% GST — ₹
                   {(plan.price + Math.round(plan.price * 0.18)).toLocaleString()}{" "}
                   total
@@ -175,11 +175,11 @@ export default function SubscriptionPlansView({
               </div>
 
               {/* Features */}
-              <div className="px-5 flex-1">
-                <ul className="text-xs text-slate-500 space-y-1.5 pb-4">
+              <div className="px-6 flex-1">
+                <ul className="text-sm text-slate-500 space-y-2 pb-4">
                   {plan.features.map((f, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-1.5 flex-shrink-0" />
+                      <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 flex-shrink-0" />
                       <span>{f}</span>
                     </li>
                   ))}
@@ -187,12 +187,12 @@ export default function SubscriptionPlansView({
               </div>
 
               {/* Edit Button */}
-              <div className="px-5 pb-5">
+              <div className="px-6 pb-6">
                 <button
                   onClick={() => openEdit(plan)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
+                  <Edit3 className="w-4 h-4" />
                   Edit Plan
                 </button>
               </div>
@@ -205,8 +205,8 @@ export default function SubscriptionPlansView({
       {editingPlan && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-xs animate-fade-in">
           <div className="bg-white border border-slate-300 w-full max-w-lg rounded-lg overflow-hidden shadow-xl animate-scale-in">
-            <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-200">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-200">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
                 <Edit3 className="w-4 h-4 text-blue-600" />
                 Edit {editingPlan.name}
               </h3>
@@ -214,33 +214,33 @@ export default function SubscriptionPlansView({
                 onClick={closeEdit}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <div className="p-5 space-y-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   Plan Name
                 </label>
                 <input
                   type="text"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 transition"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 transition"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   Price (₹)
                 </label>
                 <div className="relative">
-                  <DollarSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <DollarSign className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="number"
                     min={0}
-                    className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border rounded text-sm font-bold focus:outline-none transition ${
+                    className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded text-sm font-bold focus:outline-none transition ${
                       editPriceError
                         ? "border-red-400 focus:border-red-500"
                         : "border-slate-200 focus:border-blue-600"
@@ -260,13 +260,13 @@ export default function SubscriptionPlansView({
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   Features (one per line)
                 </label>
                 <textarea
-                  rows={5}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 transition resize-none"
+                  rows={4}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-600 transition resize-none"
                   value={editFeatures}
                   onChange={(e) => setEditFeatures(e.target.value)}
                 />
@@ -275,13 +275,13 @@ export default function SubscriptionPlansView({
               <div className="flex gap-3 justify-end pt-2 border-t border-slate-100">
                 <button
                   onClick={closeEdit}
-                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-1.5 bg-slate-100 text-slate-600 rounded text-[11px] font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditSave}
-                  className="px-5 py-2 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 transition cursor-pointer"
+                  className="px-5 py-1.5 bg-blue-600 text-white rounded text-[11px] font-bold hover:bg-blue-700 transition cursor-pointer"
                 >
                   Save
                 </button>

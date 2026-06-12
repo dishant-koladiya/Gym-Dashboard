@@ -73,6 +73,11 @@ export default function MembersView({
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("Only image files are allowed (JPEG, PNG, GIF, etc.)");
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => setNewAvatarUrl(reader.result as string);
     reader.readAsDataURL(file);

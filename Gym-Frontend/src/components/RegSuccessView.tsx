@@ -46,7 +46,7 @@ export default function RegSuccessView({ gymName, adminName, onActivate, onNavig
           <div className="inline-flex w-12 h-12 bg-blue-600 items-center justify-center rounded text-white shadow-md mx-auto">
             <QrCode className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-black text-slate-850 tracking-tight">{gymName || "Titan Fitness"} Active</h2>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight">{gymName || "Titan Fitness"} Active</h2>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest leading-none">Console Plan Activation</p>
         </div>
 
@@ -84,7 +84,7 @@ export default function RegSuccessView({ gymName, adminName, onActivate, onNavig
               <div className="text-center space-y-1">
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider uppercase">Scan with BHIM UPI, GPay, Paytm or PhonePe</p>
                 <div className="h-0.5" />
-                <span className="text-xs font-bold text-slate-650 flex items-center gap-1.5 justify-center leading-none">
+                <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 justify-center leading-none">
                   <Dumbbell className="w-3.5 h-3.5 text-blue-600" />
                   <span>Titan Fitness Premium Setup</span>
                 </span>
@@ -93,9 +93,9 @@ export default function RegSuccessView({ gymName, adminName, onActivate, onNavig
 
             {/* Properties summary ledger */}
             <div className="bg-slate-50/50 border border-slate-200 rounded-lg p-4 space-y-3.5 text-xs text-slate-600">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-150">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                 <p className="font-bold text-slate-400 uppercase tracking-widest">Active Setup Ledger</p>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-150 uppercase">
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 uppercase">
                   Pending Scan Check
                 </span>
               </div>
@@ -138,7 +138,7 @@ export default function RegSuccessView({ gymName, adminName, onActivate, onNavig
                   onNavigate(Screen.DASHBOARD);
                 }}
                 disabled={isProcessing}
-                className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-850 hover:bg-slate-50 rounded-lg text-xs font-bold transition cursor-pointer"
+                className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-50 rounded-lg text-xs font-bold transition cursor-pointer"
               >
                 Skip / Activate Later
               </button>

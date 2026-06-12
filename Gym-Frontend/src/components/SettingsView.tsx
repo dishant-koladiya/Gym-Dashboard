@@ -125,7 +125,7 @@ export default function SettingsView({ admin, gym, settings, onSave, onNavigate 
         
         {/* Module 1: Admin Account Details */}
         <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-sm">
-          <h3 className="font-bold text-slate-805 border-b border-slate-100 pb-2.5 flex items-center gap-2">
+          <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2.5 flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-blue-600" />
             <span>Admin Credentials</span>
           </h3>
@@ -189,7 +189,7 @@ export default function SettingsView({ admin, gym, settings, onSave, onNavigate 
               <input
                 type="text"
                 disabled
-                className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-150 rounded text-sm text-slate-500 font-semibold cursor-not-allowed uppercase"
+                className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-100 rounded text-sm text-slate-500 font-semibold cursor-not-allowed uppercase"
                 value={role}
               />
             </div>
@@ -227,7 +227,7 @@ export default function SettingsView({ admin, gym, settings, onSave, onNavigate 
 
         {/* Module 2: Gym Information settings block */}
         <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-sm">
-          <h3 className="font-bold text-slate-805 border-b border-slate-100 pb-2.5 flex items-center gap-2">
+          <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2.5 flex items-center gap-2">
             <Home className="w-5 h-5 text-blue-600" />
             <span>Gym Information Details</span>
           </h3>
@@ -279,7 +279,7 @@ export default function SettingsView({ admin, gym, settings, onSave, onNavigate 
 
         {/* Module 3: Notification Alert Settings */}
         {/* <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm">
-          <h3 className="font-bold text-slate-805 border-b border-slate-100 pb-2.5 flex items-center gap-2">
+          <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2.5 flex items-center gap-2">
             <BellRing className="w-5 h-5 text-blue-600" />
             <span>Notification Preferences</span>
           </h3>

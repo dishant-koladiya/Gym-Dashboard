@@ -33,8 +33,8 @@ export default function LoginView({ onLogin, onNavigate }: LoginViewProps) {
       if (error) {
         setErrorMsg(error);
       }
-    } catch (e: any) {
-      setErrorMsg(e.message || "Credential verification failed");
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "Credential verification failed");
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +49,7 @@ export default function LoginView({ onLogin, onNavigate }: LoginViewProps) {
           <div className="inline-flex w-12 h-12 bg-blue-600 items-center justify-center rounded text-white shadow-md mx-auto">
             <Dumbbell className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-850 tracking-tight">Welcome Back</h2>
+          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Welcome Back</h2>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest leading-none">Titan Fitness Admin Console</p>
         </div>
 
