@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { z } from "zod";
-import { Member, Screen, SubscriptionPlan } from "../types";
+import { Member, Screen, SubscriptionPlan, Transaction } from "../types";
 import { PACKAGES } from "../data";
 import {
   Search,
@@ -25,10 +25,15 @@ import {
   Phone,
   MapPin,
   Camera,
+  Mail,
+  Calendar,
+  History,
+  DollarSign,
 } from "lucide-react";
 
 interface MembersViewProps {
   members: Member[];
+  transactions?: Transaction[];
   plans?: SubscriptionPlan[];
   onAddMember: (member: Omit<Member, "id">) => void;
   onEditMember: (member: Member) => void;
@@ -40,6 +45,7 @@ interface MembersViewProps {
 
 export default function MembersView({
   members,
+  transactions,
   plans,
   onAddMember,
   onEditMember,
@@ -98,17 +104,17 @@ export default function MembersView({
 
   const membersWithStatus = members.map((m) => ({ ...m, status: getMemberStatus(m) }));
 
-  // Member info card state
-  const [activeInfoMember, setActiveInfoMember] = useState<string | null>(null);
-  const infoCardRef = useRef<HTMLDivElement>(null);
+  // Member loyalty card state (same as PaymentsView)
+  const [loyaltyMember, setLoyaltyMember] = useState<string | null>(null);
+  const loyaltyRef = useRef<HTMLDivElement>(null);
 
   const [activeImageMember, setActiveImageMember] = useState<string | null>(null);
   const imageCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (infoCardRef.current && !infoCardRef.current.contains(e.target as Node)) {
-        setActiveInfoMember(null);
+      if (loyaltyRef.current && !loyaltyRef.current.contains(e.target as Node)) {
+        setLoyaltyMember(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -199,10 +205,10 @@ export default function MembersView({
   });
 
   // Pagination
-  const ITEMS_PER_PAGE = 5;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [memberPage, setMemberPage] = useState(1);
-  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
-  const paginatedMembers = filteredMembers.slice((memberPage - 1) * ITEMS_PER_PAGE, memberPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const paginatedMembers = filteredMembers.slice((memberPage - 1) * itemsPerPage, memberPage * itemsPerPage);
 
   // Calculate quick stats from computed status (14-day expiry threshold)
   const totalCount = membersWithStatus.length;
@@ -429,7 +435,7 @@ export default function MembersView({
 
       {/* Main Directory Table Container */}
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-y-auto max-h-[400px]">
           <table className="w-full text-left font-sans text-sm">
             <thead>
               <tr className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase border-b border-slate-100">
@@ -491,44 +497,73 @@ export default function MembersView({
                         </div>
                         <div className="relative">
                           <p
-                            onClick={() => setActiveInfoMember(activeInfoMember === member.id ? null : member.id)}
+                            onClick={() => setLoyaltyMember(loyaltyMember === member.name ? null : member.name)}
                             className="font-bold text-slate-800 cursor-pointer hover:text-blue-600 transition"
                           >
                             {member.name}
                           </p>
                           <p className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 leading-none mt-0.5">
-                            <span className="font-semibold text-slate-600">{member.id}</span>
-                            <span>•</span>
                             <span>{member.email}</span>
                           </p>
-                          {activeInfoMember === member.id && (
+                          {loyaltyMember === member.name && (
                             <div
-                              ref={infoCardRef}
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute left-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-lg shadow-xl z-40 p-4 animate-scale-in"
+                              ref={loyaltyRef}
+                              className="absolute left-full top-0 ml-2 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-40 p-4 animate-scale-in"
                             >
-                              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
-                                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-700">
-                                  {member.name.split(" ").map((n) => n[0]).join("")}
+                              {member && (
+                                <div className="mb-3 pb-3 border-b border-slate-100 space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <ShieldCheck className="w-4 h-4 text-blue-600" />
+                                    <span className="font-bold text-sm text-slate-800">{member.name}</span>
+                                    <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                      member.status === "Active"
+                                        ? "bg-green-50 text-green-700 border border-green-200"
+                                        : member.status === "Expiring"
+                                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                                    }`}>
+                                      {member.status}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <Phone className="w-3 h-3" />
+                                    <span>{member.phone}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>Expires: {member.expiryDate}</span>
+                                  </div>
+                                  <div className="text-xs font-semibold text-slate-600">
+                                    Plan: {member.plan} — ₹{member.price.toLocaleString()}
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="text-sm font-bold text-slate-800 leading-tight">{member.name}</p>
-                                  <p className="text-[10px] text-slate-400 font-mono font-semibold">{member.id}</p>
-                                </div>
+                              )}
+                              <div className="flex items-center gap-2 mb-2">
+                                <History className="w-4 h-4 text-blue-600" />
+                                <span className="font-bold text-xs text-slate-800">Transaction History</span>
                               </div>
-                              <div className="space-y-2.5">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-7 h-7 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                                  </div>
-                                  <span className="text-xs font-medium text-slate-700">{member.phone}</span>
+                              {(!transactions || (transactions || []).filter((tx) => tx.memberName === member.name).length === 0) ? (
+                                <p className="text-xs text-slate-400 text-center py-2">No transactions found</p>
+                              ) : (
+                                <div className="space-y-2 max-h-36 overflow-y-auto">
+                                  {(transactions || []).filter((tx) => tx.memberName === member.name).map((h) => (
+                                    <div key={h.id} className="flex items-center justify-between text-xs">
+                                      <div className="flex items-center gap-2">
+                                        <DollarSign className="w-3 h-3 text-slate-400" />
+                                        <span className="text-slate-600">{h.date}</span>
+                                      </div>
+                                      <span className="font-semibold text-slate-800">₹{h.amount.toLocaleString()}</span>
+                                    </div>
+                                  ))}
                                 </div>
-                                <div className="flex items-start gap-2.5">
-                                  <div className="w-7 h-7 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <MapPin className="w-3.5 h-3.5 text-amber-600" />
-                                  </div>
-                                  <span className="text-xs font-medium text-slate-700 leading-snug">{member.address}</span>
-                                </div>
+                              )}
+                              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
+                                <span className="text-slate-500">Total Paid</span>
+                                <span className="text-blue-700">₹{(transactions || [])
+                                  .filter((tx) => tx.memberName === member.name && tx.status === "Completed")
+                                  .reduce((sum, tx) => sum + tx.amount, 0)
+                                  .toLocaleString()}</span>
                               </div>
                             </div>
                           )}
@@ -586,41 +621,24 @@ export default function MembersView({
 
         {/* Footer/Pagination */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
-          <p className="text-slate-500">
-            Showing <span className="font-bold text-slate-800">{paginatedMembers.length}</span> of{" "}
-            <span className="font-bold text-slate-800">{filteredMembers.length}</span> members records
-          </p>
-          <div className="flex gap-2">
-            <button
-              disabled={memberPage <= 1}
-              onClick={() => setMemberPage((p) => Math.max(1, p - 1))}
-              className={`px-3 py-1 rounded font-semibold transition cursor-pointer ${
-                memberPage <= 1 ? "bg-white border border-slate-200 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
+          <div className="flex items-center gap-3">
+            <p className="text-slate-500">
+              Showing <span className="font-bold text-slate-800">{paginatedMembers.length}</span> of{" "}
+              <span className="font-bold text-slate-800">{filteredMembers.length}</span>             </p>
+            <span className="text-slate-500">page :</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setMemberPage(1); }}
+              className="bg-white border border-slate-200 text-xs font-bold text-slate-600 px-2 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-blue-600 cursor-pointer"
             >
-              Previous
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i + 1}
-                onClick={() => setMemberPage(i + 1)}
-                className={`px-3 py-1 rounded font-bold transition cursor-pointer ${
-                  memberPage === i + 1 ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-            <button
-              disabled={memberPage >= totalPages}
-              onClick={() => setMemberPage((p) => Math.min(totalPages, p + 1))}
-              className={`px-3 py-1 rounded font-semibold transition cursor-pointer ${
-                memberPage >= totalPages ? "bg-white border border-slate-200 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Next
-            </button>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+            </select>
           </div>
+
         </div>
       </div>
 

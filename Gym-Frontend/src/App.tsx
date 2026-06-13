@@ -985,6 +985,7 @@ useEffect(() => {
         return (
           <MembersView
             members={members}
+            transactions={transactions}
             plans={subscriptionPlans}
             onAddMember={handleAddMember}
             onEditMember={handleEditMember}
@@ -995,7 +996,7 @@ useEffect(() => {
           />
         );
       case Screen.PAYMENTS_FINANCE:
-        return <PaymentsView transactions={transactions} members={members} />;
+        return <PaymentsView transactions={transactions} />;
       case Screen.SUBSCRIPTION_PLANS:
         return (
           <SubscriptionPlansView

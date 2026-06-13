@@ -100,6 +100,13 @@ export default function Sidebar({
           );
         })}
       </nav>
+
+      {/* Version Footer */}
+      <div className={`border-t border-slate-300 ${collapsed ? "px-0 py-4 flex justify-center" : "px-0 py-0.8 text-center"}`}>
+        <span className={`text-slate-400 font-medium ${collapsed ? "text-[10px]" : "text-xs"}`}>
+          {collapsed ? "v1.0" : "Version 1.0.0"}
+        </span>
+      </div>
     </aside>
   );
 }

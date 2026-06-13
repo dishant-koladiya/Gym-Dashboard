@@ -3,9 +3,7 @@ import { SubscriptionPlan } from "../types";
 import {
   Power,
   Edit3,
-  CheckCircle2,
   X,
-  Save,
   DollarSign,
   AlertCircle,
 } from "lucide-react";
@@ -22,7 +20,6 @@ export default function SubscriptionPlansView({
   const [localPlans, setLocalPlans] = useState<SubscriptionPlan[]>(
     plans.map((p) => ({ ...p }))
   );
-  const [saved, setSaved] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
@@ -34,6 +31,7 @@ export default function SubscriptionPlansView({
       p.name === name ? { ...p, active: value === "active" } : p
     );
     setLocalPlans(updated);
+    onSave(updated);
   };
 
   const openEdit = (plan: SubscriptionPlan) => {
@@ -64,17 +62,9 @@ export default function SubscriptionPlansView({
         : p
     );
     setLocalPlans(updated);
+    onSave(updated);
     closeEdit();
   };
-
-  const handleGlobalSave = () => {
-    onSave(localPlans);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
-
-  const hasUnsavedChanges =
-    JSON.stringify(localPlans) !== JSON.stringify(plans);
 
   const badges: Record<string, string> = {
     "SHORT TERM": "bg-slate-100 text-slate-600",
@@ -93,27 +83,7 @@ export default function SubscriptionPlansView({
             Manage pricing, features and availability
           </p>
         </div>
-
-        <button
-          onClick={handleGlobalSave}
-          disabled={!hasUnsavedChanges}
-          className={`bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition cursor-pointer ${
-            hasUnsavedChanges
-              ? "hover:bg-blue-700 active:scale-[0.98]"
-              : "opacity-50 cursor-not-allowed"
-          }`}
-        >
-          <Save className="w-3.5 h-3.5" />
-          Save
-        </button>
       </div>
-
-      {saved && (
-        <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-lg text-sm font-semibold animate-fade-in">
-          <CheckCircle2 className="w-4 h-4" />
-          Plans saved successfully!
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {localPlans.map((plan) => {
