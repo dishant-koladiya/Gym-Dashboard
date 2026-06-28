@@ -62,18 +62,6 @@ Create a `.env` file in the `Gym-Backend` directory with the following variables
 | `JWT_SECRET` | Secret key for JWT signing (required) |
 | `CORS_ORIGIN` | Allowed CORS origin (default: `http://localhost:5173`) |
 
-## Docker
-
-```bash
-# Start all services (PostgreSQL + Backend + Frontend)
-npm run docker:up
-
-# Stop
-npm run docker:down
-```
-
-Frontend will be available at `http://localhost:8080`.
-
 ## Scripts
 
 ```bash

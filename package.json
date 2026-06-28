@@ -8,9 +8,7 @@
     "dev:frontend": "cd Gym-Frontend && npm run dev",
     "build": "cd Gym-Backend && npm run build && cd ../Gym-Frontend && npm run build",
     "lint": "cd Gym-Backend && npm run lint && cd ../Gym-Frontend && npm run lint",
-    "test": "cd Gym-Backend && npm test",
-    "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down"
+    "test": "cd Gym-Backend && npm test"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
