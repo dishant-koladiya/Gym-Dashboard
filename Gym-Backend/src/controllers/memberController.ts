@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import * as db from '../db/db.js';
-import { Member } from '../types.js';
+import * as db from '../db/db.ts';
+import { Member } from '../types.ts';
 
 export async function getAllMembers(req: Request, res: Response) {
   try {

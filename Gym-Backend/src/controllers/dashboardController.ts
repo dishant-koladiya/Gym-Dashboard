@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import * as db from '../db/db.js';
-import { DashboardStats } from '../types.js';
+import * as db from '../db/db.ts';
+import { DashboardStats } from '../types.ts';
 
 export async function getDashboardStats(req: Request, res: Response) {
   try {

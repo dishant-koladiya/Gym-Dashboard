@@ -2,9 +2,9 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import * as db from '../db/db.js';
-import { User } from '../types.js';
-import { AuthenticatedRequest } from '../middleware/auth.js';
+import * as db from '../db/db.ts';
+import { User } from '../types.ts';
+import { AuthenticatedRequest } from '../middleware/auth.ts';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;

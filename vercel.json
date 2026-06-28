@@ -1,5 +1,11 @@
 {
   "buildCommand": "cd Gym-Frontend && npm install && npm run build",
   "outputDirectory": "Gym-Frontend/dist",
-  "framework": "vite"
+  "framework": "vite",
+  "functions": {
+    "api/index.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  }
 }

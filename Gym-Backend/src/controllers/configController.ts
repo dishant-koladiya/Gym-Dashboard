@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import * as db from '../db/db.js';
-import { AuthenticatedRequest } from '../middleware/auth.js';
+import * as db from '../db/db.ts';
+import { AuthenticatedRequest } from '../middleware/auth.ts';
 
 export async function getAdmin(req: Request, res: Response) {
   try {

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import * as db from '../db/db.js';
+import * as db from '../db/db.ts';
 
 export async function getAll(req: Request, res: Response) {
   try {
