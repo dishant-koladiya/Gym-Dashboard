@@ -28,7 +28,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   theme: "Light",
   emailUpdates: true,
   desktopAlerts: false,
-  backendUrl: "http://localhost:5000",
+  backendUrl: "",
   backendToken: "",
 };
 
