@@ -1,6 +1,5 @@
 {
-  "rootDirectory": "Gym-Frontend",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "buildCommand": "cd Gym-Frontend && npm install && npm run build",
+  "outputDirectory": "Gym-Frontend/dist",
   "framework": "vite"
 }
